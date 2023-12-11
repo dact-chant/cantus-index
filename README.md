@@ -1,10 +1,10 @@
 # Cantus Index API Documentation
 
-## json-cid (Get concordances by Cantus ID)
-The endpoint `https://cantusindex.uwaterloo.ca/json-cid/{CantusID}` retrieves concordances of the Cantus IDs (chants from CI databases with the specified Cantus ID).
+## `json-cid` (get concordances by Cantus ID)
+The endpoint `https://cantusindex.uwaterloo.ca/json-cid/{CantusID}` retrieves the chants from CI databases which have the specified Cantus ID.
 
-## json-nextchants (Get Next Chants by Cantus ID)
+## `json-nextchants` (get next chants by Cantus ID)
 The endpoint `https://cantusindex.uwaterloo.ca/json-nextchants/{CantusID}` retrieves the Cantus IDs which usually follow after the specified Cantus ID.
 
-## json-nextfeasts (Get Next Feasts by Feast ID)
+## `json-nextfeasts` (get next feasts by Feast ID)
 Coming soon
