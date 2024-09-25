@@ -15,7 +15,5 @@ The endpoint `https://cantusindex.org/json-nextchants/{CantusID}` retrieves the 
 
 ## `json-text` (get chants by search string)
 The endpoint `https://cantusindex.org/json-text/{searchString}`  retrieves chants from the Cantus Index based on a given search string.
-It provides two levels of search:
-Initial Search: Retrieves chants whose full text starts with the specified search string.
-Fallback Search: If the initial search returns fewer than 50 results, it retrieves chants containing the search string anywhere in their full text. 
+It provides two levels of search: (1) Initial Search: Retrieves chants whose full text starts with the specified search string. (2) Fallback Search: If the initial search returns fewer than 50 results, it retrieves chants containing the search string anywhere in their full text. 
 The results include metadata about the chant, such as its Cantus ID, the full text of the chant, and its genre.
