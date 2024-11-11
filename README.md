@@ -6,6 +6,17 @@ The endpoint `https://cantusindex.org/json-cid/{CantusID}` retrieves the chants 
 ## `json-cid-mel` (get melodies by Cantus ID)
 The endpoint `https://cantusindex.org/json-cid-mel/{CantusID}` retrieves the chants from CI databases which have the specified Cantus ID. It filters the results to include only those records where the 'melody' field is not null.
 
+## `json-merged-chants` (get all Cantus ID merging actions)
+The endpoint `https://cantusindex.org/json-merged-chants` provides a list of merged chant Cantus IDs, logging changes from old Cantus IDs to new Cantus IDs, including the dates of these changes.
+
+### Response Format:
+
+Each record in the JSON response includes the following fields:
+- **id**: Unique identifier for the merged action.
+- **old**: The old Cantus ID.
+- **new**: The new Cantus ID replacing the old one.
+- **date**: The date when the change was made (formatted as `YYYY-MM-DD`).
+
 ## `json-nextchants` (get next chants by Cantus ID)
 The endpoint `https://cantusindex.org/json-nextchants/{CantusID}` retrieves the Cantus IDs which usually follow after the specified Cantus ID. These data are usually displayed to indexers as "Chant suggestions".
 (under construction)  
@@ -18,7 +29,7 @@ The endpoint `https://cantusindex.org/json-text/{searchString}`  retrieves chant
 It provides two levels of search: (1) Initial Search: Retrieves chants whose full text starts with the specified search string. (2) Fallback Search: If the initial search returns fewer than 50 results, it retrieves chants containing the search string anywhere in their full text. 
 The results include metadata about the chant, such as its Cantus ID, the full text of the chant, and its genre.
 
-## Concordance Data Export for External Databases
+# Concordance Data Export for External Databases
 
 External databases that want to provide concordance data to Cantus Index (CI) should set up an automated export at least daily. This ensures that CI retrieves the latest concordances for display on the website and for `json-cid` API responses. The export should be in JSON format and follow the specific structure below.
 
