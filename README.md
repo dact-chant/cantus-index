@@ -18,8 +18,7 @@ Each record in the JSON response includes the following fields:
 - **date**: The date when the change was made (formatted as `YYYY-MM-DD`).
 
 ## `json-nextchants` (get next chants by Cantus ID)
-The endpoint `https://cantusindex.org/json-nextchants/{CantusID}` retrieves the Cantus IDs which usually follow after the specified Cantus ID. These data are usually displayed to indexers as "Chant suggestions".
-(under construction)  
+The endpoint `https://cantusindex.org/json-nextchants/{CantusID}` retrieves the Cantus IDs which usually follow after the specified Cantus ID. These data are usually displayed to indexers as "Chant suggestions" in Cantus Input Tools.  
 
 ## `json-nextfeasts` (get next feasts by Feast ID)
 (under construction)  
