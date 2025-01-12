@@ -34,24 +34,25 @@ External databases that want to provide concordance data to Cantus Index (CI) sh
 
 ### Expected JSON Structure for Concordance Exports
 
-Each external database should format its JSON export as a list of chant records, with each record containing the following fields:
+Each external database should format its JSON export as a list of chant records, with each record containing the following fields.
+Fields marked with an asterisk (*) are obligatory and must be included in every record. Other fields are optional but recommended when data is available.
 
-- **siglum**: Abbreviation for the source manuscript or collection (e.g., `"A-ABC Fragm. 1"`).
+- **siglum** (*): Abbreviation for the source manuscript or collection (e.g., `"A-ABC Fragm. 1"`).
 - **srclink**: URL link to the source in the external database (e.g., `"https://yourdatabase.org/source/123"`).
-- **chantlink**: URL link directly to the chant entry in the external database (e.g., `"https://yourdatabase.org/chant/45678"`).
-- **folio**: Folio information for the chant (e.g., `"001v"`).
+- **chantlink** (*): URL link directly to the chant entry in the external database (e.g., `"https://yourdatabase.org/chant/45678"`).
+- **folio** (*): Folio information for the chant (e.g., `"001v"`).
 - **sequence**: The order of the chant on the folio (e.g., `"1"`).
-- **incipit**: The opening words or phrase of the chant (e.g., `"Non sufficiens sibi semel aspexisse vis "`).
+- **incipit** (*): The opening words or phrase of the chant (e.g., `"Non sufficiens sibi semel aspexisse vis "`).
 - **feast**: Feast or liturgical occasion associated with the chant (e.g., `"Nativitas Mariae"`).
 - **genre**: Genre of the chant, such as antiphon (A), responsory (R), hymn (H), etc. (e.g., `"V"`).
 - **office**: The office in which the chant is used, such as Matins (M) or Lauds (L) (e.g., `"M"`).
 - **position**: Liturgical position of the chant in the office (e.g., `"01"`).
-- **cantus_id**: The unique Cantus ID associated with the chant (e.g., `"007129a"`).
+- **cantus_id** (*): The unique Cantus ID associated with the chant (e.g., `"007129a"`).
 - **image**: URL link to an image of the manuscript page, if available (e.g., `"https://yourdatabase.org/image/12345"`).
 - **mode**: Mode of the chant, if available (e.g., `"1"`).
 - **full_text**: Full text of the chant (e.g., `"Non sufficiens sibi semel aspexisse vis amoris multiplicavit in ea inten]tionem inquisitionis"`).
 - **melody**: Melody encoded in Volpiano, if available (e.g., `"1---dH---h7--h--ghgfed--gH---h--h---"`).
-- **db**: Code for the database providing the data, used for identification within CI (e.g., `"DBcode"`).
+- **db** (*): Code for the database providing the data, used for identification within CI (e.g., `"DBcode"`).
 
 ### Example JSON Export
 
