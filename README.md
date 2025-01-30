@@ -30,7 +30,13 @@ The results include metadata about the chant, such as its Cantus ID, the full te
 
 # Concordance Data Export for External Databases
 
-External databases that want to provide concordance data to Cantus Index (CI) should set up an automated export at least daily. This ensures that CI retrieves the latest concordances for display on the website and for `json-cid` API responses. The export should be in JSON format and follow the specific structure below.
+External databases that wish to provide concordance data to **Cantus Index (CI)** should set up an automated export that runs **at least once per day**. This ensures that CI retrieves the latest concordance data for display on the website and for `json-cid` API responses.
+
+## Export Endpoint
+
+Cantus Index will request the exported file daily from a specified endpoint, such as:
+   https://yourchantdatabase.org/concordances-export.json
+The export should be in JSON format and follow the specific structure below.
 
 ### Expected JSON Structure for Concordance Exports
 
@@ -38,7 +44,7 @@ Each external database should format its JSON export as a list of chant records,
 Fields marked with an asterisk (*) are obligatory and must be included in every record. Other fields are optional but recommended when data is available.
 
 - **siglum** (*): Abbreviation for the source manuscript or collection (e.g., `"A-ABC Fragm. 1"`).
-- **srclink**: URL link to the source in the external database (e.g., `"https://yourdatabase.org/source/123"`).
+- **srclink** (*): URL link to the source in the external database (e.g., `"https://yourdatabase.org/source/123"`).
 - **chantlink** (*): URL link directly to the chant entry in the external database (e.g., `"https://yourdatabase.org/chant/45678"`).
 - **folio** (*): Folio information for the chant (e.g., `"001v"`).
 - **sequence**: The order of the chant on the folio (e.g., `"1"`).
@@ -48,6 +54,7 @@ Fields marked with an asterisk (*) are obligatory and must be included in every 
 - **office**: The office in which the chant is used, such as Matins (M) or Lauds (L) (e.g., `"M"`).
 - **position**: Liturgical position of the chant in the office (e.g., `"01"`).
 - **cantus_id** (*): The unique Cantus ID associated with the chant (e.g., `"007129a"`).
+- **melody_id**: The unique Melody ID associated with the chant (e.g., `"001216m1"`).
 - **image**: URL link to an image of the manuscript page, if available (e.g., `"https://yourdatabase.org/image/12345"`).
 - **mode**: Mode of the chant, if available (e.g., `"1"`).
 - **full_text**: Full text of the chant (e.g., `"Non sufficiens sibi semel aspexisse vis amoris multiplicavit in ea inten]tionem inquisitionis"`).
@@ -70,6 +77,7 @@ Fields marked with an asterisk (*) are obligatory and must be included in every 
     "office": "M",
     "position": "01",
     "cantus_id": "007129a",
+    "melody_id": "001216m1",
     "image": "https://yourdatabase.org/image/12345",
     "mode": "1",
     "full_text": "Non sufficiens sibi semel aspexisse vis amoris multiplicavit in ea inten]tionem inquisitionis",
