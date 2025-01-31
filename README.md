@@ -30,7 +30,7 @@ The results include metadata about the chant, such as its Cantus ID, the full te
 
 # Concordance Data Export for External Databases
 
-External databases that wish to provide concordance data to **Cantus Index (CI)** should set up an automated export that runs **at least once per day**. This ensures that CI retrieves the latest concordance data for display on the website and for `json-cid` API responses.
+External databases that wish to provide concordance data to **Cantus Index (CI)** should set up an automated export that runs **at least once per day**. This ensures that CI retrieves the latest concordance data for display on the CI website, in the Cantus Analysis Tool, and for json-cid API responses.
 
 ## Export Endpoint
 
