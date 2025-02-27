@@ -59,6 +59,7 @@ Fields marked with an asterisk (*) are obligatory and must be included in every 
 - **mode**: Mode of the chant, if available (e.g., `"1"`).
 - **full_text**: Full text of the chant (e.g., `"Non sufficiens sibi semel aspexisse vis amoris multiplicavit in ea inten]tionem inquisitionis"`).
 - **melody**: Melody encoded in Volpiano, if available (e.g., `"1---dH---h7--h--ghgfed--gH---h--h---"`).
+- **century**: Number identifying the century of the source. If multiple centuries apply, the lowest number should be used. (e.g., `"12"`).
 - **db** (*): Code for the database providing the data, used for identification within CI (e.g., `"DBcode"`).
 
 ### Example JSON Export
@@ -82,6 +83,7 @@ Fields marked with an asterisk (*) are obligatory and must be included in every 
     "mode": "1",
     "full_text": "Non sufficiens sibi semel aspexisse vis amoris multiplicavit in ea inten]tionem inquisitionis",
     "melody": "1---dH---h7--h--ghgfed--gH---h--h---",
+    "century": "12",
     "db": "DBcode"
   },
   ...
