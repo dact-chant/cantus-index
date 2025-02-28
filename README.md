@@ -9,6 +9,11 @@ The endpoint `https://cantusindex.org/json-cid-mel/{CantusID}` retrieves the cha
 ## `json-merged-chants` (get all Cantus ID merging actions)
 The endpoint `https://cantusindex.org/json-merged-chants` provides a list of merged chant Cantus IDs, logging changes from old Cantus IDs to new Cantus IDs, including the dates of these changes.
 
+### Parameters:
+- **`skip`** (optional, integer) – Specifies the number of merging action records to skip from the beginning of the dataset.
+  - Default: `0` (starts from the first record).  
+  - Example: `?skip=1000` will skip the first 1000 records and return results starting from merge ID 1001.
+
 ### Response Format:
 
 Each record in the JSON response includes the following fields:
