@@ -6,6 +6,9 @@ The endpoint `https://cantusindex.org/json-cid/{CantusID}` retrieves the chants 
 ## `json-cid-mel` (get melodies by Cantus ID)
 The endpoint `https://cantusindex.org/json-cid-mel/{CantusID}` retrieves the chants from CI databases which have the specified Cantus ID. It filters the results to include only those records where the 'melody' field is not null.
 
+## `json-feasts` (get all Cantus Index feasts)
+The endpoint `https://cantusindex.org/json-feasts` retrieves all feasts from the Cantus Index, including their descriptions, feast codes, and associated dates.
+
 ## `json-merged-chants` (get all Cantus ID merging actions)
 The endpoint `https://cantusindex.org/json-merged-chants` provides a list of merged chant Cantus IDs, logging changes from old Cantus IDs to new Cantus IDs, including the dates of these changes.
 
