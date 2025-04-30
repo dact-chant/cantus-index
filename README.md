@@ -7,8 +7,21 @@ The endpoint `https://cantusindex.org/json-cid/{CantusID}` retrieves the chants 
 The endpoint `https://cantusindex.org/json-cid-mel/{CantusID}` retrieves the chants from CI databases which have the specified Cantus ID. It filters the results to include only those records where the 'melody' field is not null.
 
 ## `json-feasts` (get all Cantus Index feasts)
-The endpoint `https://cantusindex.org/json-feasts` retrieves all feasts from the Cantus Index, including their descriptions, feast codes, and associated dates.
+The endpoint `https://cantusindex.org/json-feasts` retrieves all feasts from the Cantus Index, including their descriptions, feast codes, and associated dates, as well as previous feast codes and alternative feast names (if available).
 
+### Response Format:
+
+Each record in the JSON response includes the following fields:
+- **feastcode**: Internal code for the feast day or liturgical occasion (e.g., "14073000").
+- **feastname**: Standardized name of the feast 
+- **description**: A brief description of the feast, including the names and titles of the saints or commemorations
+- **feastdate**: The liturgical date of the feast in abbreviated month and day form (e.g., "Jul.30").
+- **feastday**: The numeric day of the month on which the feast occurs (e.g., "30").
+- **feastmonth**: The numeric month in which the feast occurs (e.g., "7" for July).
+- **feastnotes**: Any additional notes, qualifiers, or historical remarks about the feast. 
+- **prev_feast_codes**: (array of strings) A list of former feast codes, if applicable. Empty array if there are none.
+- **alt_feast_names**: (array of strings) Alternative or vernacular names for the feast. Empty array if there are none.
+ 
 ## `json-merged-chants` (get all Cantus ID merging actions)
 The endpoint `https://cantusindex.org/json-merged-chants` provides a list of merged chant Cantus IDs, logging changes from old Cantus IDs to new Cantus IDs, including the dates of these changes.
 
