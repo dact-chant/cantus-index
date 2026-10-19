@@ -52,19 +52,20 @@ function ci_correction_rules_menu_alter(&$items) {
   if (isset($items['corrections'])) {
     $items['corrections']['title'] = 'Correction history';
     $items['corrections']['page callback'] = 'ci_correction_rules_legacy_route_redirect';
-    $items['corrections']['page arguments'] = array('correction-tools/history');
     $items['corrections']['type'] = MENU_CALLBACK;
   }
   if (isset($items['corrections/import'])) {
     $items['corrections/import']['page callback'] = 'ci_correction_rules_legacy_route_redirect';
-    $items['corrections/import']['page arguments'] = array('correction-tools/review');
   }
 }
 
 /**
  * Redirects an obsolete correction route to its current replacement.
  */
-function ci_correction_rules_legacy_route_redirect($destination) {
+function ci_correction_rules_legacy_route_redirect() {
+  $destination = current_path() === 'corrections/import'
+    ? 'correction-tools/review'
+    : 'correction-tools/history';
   backdrop_goto($destination);
 }
 
