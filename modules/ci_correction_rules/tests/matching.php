@@ -77,6 +77,22 @@ foreach ($replacement_cases as $index => $case) {
 
 echo count($replacement_cases) . ' text replacement regression checks passed.' . PHP_EOL;
 
+$pending_status_cases = array(
+  array('coelis coelitus', 'coelis', 'word_present'),
+  array('caelis coelitus', 'coelis', 'word_not_present'),
+  array(FALSE, 'coelis', 'missing_text'),
+  array('coelis', '', 'word_not_present'),
+);
+foreach ($pending_status_cases as $index => $case) {
+  $actual = ci_correction_rules_pending_word_status($case[0], $case[1]);
+  if ($actual !== $case[2]) {
+    fwrite(STDERR, 'Pending record status case ' . ($index + 1) . ': expected '
+      . $case[2] . ', got ' . $actual . PHP_EOL);
+    exit(1);
+  }
+}
+echo count($pending_status_cases) . ' pending-record cleanup checks passed.' . PHP_EOL;
+
 $text_changes = ci_correction_rules_find_text_changes('eius eius, Pompeius', $base_rule);
 if (count($text_changes) !== 1 || $text_changes[0]['old'] !== 'eius'
   || $text_changes[0]['new'] !== 'ejus' || $text_changes[0]['count'] !== 2) {
