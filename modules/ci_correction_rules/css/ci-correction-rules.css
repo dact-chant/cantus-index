@@ -1,0 +1,25 @@
+.ci-correction-history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75em;
+  margin-bottom: 1em;
+}
+
+.ci-correction-history-filter {
+  display: flex;
+  flex-direction: column;
+}
+
+.ci-correction-history-filter input {
+  box-sizing: border-box;
+  width: 12em;
+  max-width: 100%;
+}
+
+.ci-correction-history-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  min-height: 2.5em;
+}

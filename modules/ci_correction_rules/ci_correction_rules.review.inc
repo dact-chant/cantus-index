@@ -383,65 +383,31 @@ function ci_correction_rules_audit_page() {
   $chant_id = isset($_GET['chant_id']) ? trim((string) $_GET['chant_id']) : '';
   $page = isset($_GET['page']) ? max(0, (int) $_GET['page']) : 0;
 
-  $build['filters'] = backdrop_get_form('ci_correction_rules_audit_filter_form', $word, $chant_id);
+  $filters = '<form class="ci-correction-history-filters" method="get" action="' . check_url(url('correction-tools/history')) . '">'
+    . '<div class="ci-correction-history-filter">'
+    . '<label for="ci-correction-history-word">' . check_plain(t('Original or corrected word')) . '</label>'
+    . '<input type="text" id="ci-correction-history-word" name="word" size="12" value="' . check_plain($word) . '">'
+    . '</div>'
+    . '<div class="ci-correction-history-filter">'
+    . '<label for="ci-correction-history-chant-id">' . check_plain(t('Cantus ID contains')) . '</label>'
+    . '<input type="text" id="ci-correction-history-chant-id" name="chant_id" size="12" value="' . check_plain($chant_id) . '">'
+    . '</div>'
+    . '<div class="ci-correction-history-actions">'
+    . '<button type="submit">' . check_plain(t('Search')) . '</button> '
+    . l(t('Clear filters'), 'correction-tools/history')
+    . '</div>'
+    . '</form>';
+  $build['filters'] = array(
+    '#markup' => $filters,
+    '#attached' => array(
+      'css' => array(backdrop_get_path('module', 'ci_correction_rules') . '/css/ci-correction-rules.css'),
+    ),
+  );
   $build['results'] = ci_correction_rules_audit_results($word, $chant_id, $page);
   if ($pending) {
     $build['legacy_apply'] = backdrop_get_form('ci_correction_rules_apply_legacy_pending_form', $pending);
   }
   return $build;
-}
-
-/**
- * Builds the correction-history filters.
- */
-function ci_correction_rules_audit_filter_form($form, &$form_state, $word = '', $chant_id = '') {
-  $form['#attributes']['class'][] = 'ci-correction-history-filters';
-  $form['word'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Original or corrected word'),
-    '#default_value' => $word,
-    '#ajax' => array(
-      'callback' => 'ci_correction_rules_audit_filter_ajax',
-      'wrapper' => 'ci-correction-history-results',
-      'method' => 'replace',
-      'event' => 'change',
-    ),
-  );
-  $form['chant_id'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Cantus ID contains'),
-    '#default_value' => $chant_id,
-    '#ajax' => array(
-      'callback' => 'ci_correction_rules_audit_filter_ajax',
-      'wrapper' => 'ci-correction-history-results',
-      'method' => 'replace',
-      'event' => 'change',
-    ),
-  );
-  $form['actions'] = array('#type' => 'actions');
-  $form['actions']['search'] = array(
-    '#type' => 'submit',
-    '#value' => t('Search'),
-    '#ajax' => array(
-      'callback' => 'ci_correction_rules_audit_filter_ajax',
-      'wrapper' => 'ci-correction-history-results',
-      'method' => 'replace',
-    ),
-  );
-  $form['actions']['clear'] = array(
-    '#markup' => ' ' . l(t('Clear filters'), 'correction-tools/history'),
-  );
-  return $form;
-}
-
-/**
- * Returns filtered history results for an AJAX filter request.
- */
-function ci_correction_rules_audit_filter_ajax($form, &$form_state) {
-  $values = isset($form_state['values']) ? $form_state['values'] : array();
-  $word = isset($values['word']) ? trim((string) $values['word']) : '';
-  $chant_id = isset($values['chant_id']) ? trim((string) $values['chant_id']) : '';
-  return ci_correction_rules_audit_results($word, $chant_id, 0);
 }
 
 /**
