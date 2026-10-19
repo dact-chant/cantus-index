@@ -1,0 +1,9 @@
+name = CI Correction rules
+description = Provides structured spelling and capitalization correction rules.
+backdrop = 1.x
+type = module
+package = Cantus Index
+dependencies[] = node
+dependencies[] = text
+dependencies[] = list
+dependencies[] = options

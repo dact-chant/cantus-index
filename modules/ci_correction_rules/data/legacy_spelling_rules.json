@@ -1,0 +1,1059 @@
+[
+  {
+    "find": "adiutorium",
+    "replace": "adjutorium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 2
+  },
+  {
+    "find": "adiu",
+    "replace": "adju",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 2
+  },
+  {
+    "find": "adulescen",
+    "replace": "adolescen",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 3
+  },
+  {
+    "find": "alleluja",
+    "replace": "alleluia",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 4
+  },
+  {
+    "find": "alleluya",
+    "replace": "alleluia",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 4
+  },
+  {
+    "find": "amenitatis",
+    "replace": "amoenitatis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 5
+  },
+  {
+    "find": "anulo",
+    "replace": "annulo",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 6
+  },
+  {
+    "find": "adsunt",
+    "replace": "assunt",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 7
+  },
+  {
+    "find": "adstans",
+    "replace": "astans",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 8
+  },
+  {
+    "find": "azimis",
+    "replace": "azymis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 9
+  },
+  {
+    "find": "brachi",
+    "replace": "bracchi",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 10
+  },
+  {
+    "find": "brachium",
+    "replace": "bracchium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 10
+  },
+  {
+    "find": "brachiis",
+    "replace": "bracchiis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 10
+  },
+  {
+    "find": "brachio",
+    "replace": "bracchio",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 10
+  },
+  {
+    "find": "cecus",
+    "replace": "caecus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 11
+  },
+  {
+    "find": "cecum",
+    "replace": "caecum",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 11
+  },
+  {
+    "find": "celum",
+    "replace": "caelum",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 12
+  },
+  {
+    "find": "celesti",
+    "replace": "caelesti",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 12
+  },
+  {
+    "find": "coel",
+    "replace": "cael",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 12
+  },
+  {
+    "find": "cel",
+    "replace": "cael",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 12
+  },
+  {
+    "find": "celica",
+    "replace": "caelica",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 12
+  },
+  {
+    "find": "celo",
+    "replace": "caelo",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 12
+  },
+  {
+    "find": "coen",
+    "replace": "caen",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 13
+  },
+  {
+    "find": "coenobium",
+    "replace": "caenobium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 13
+  },
+  {
+    "find": "coenobiticam",
+    "replace": "caenobiticam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 13
+  },
+  {
+    "find": "capud",
+    "replace": "caput",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 14
+  },
+  {
+    "find": "charitate",
+    "replace": "caritate",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 15
+  },
+  {
+    "find": "coena",
+    "replace": "cena",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 16
+  },
+  {
+    "find": "caena",
+    "replace": "cena",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 16
+  },
+  {
+    "find": "caeno",
+    "replace": "ceno",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 16
+  },
+  {
+    "find": "coeno",
+    "replace": "ceno",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 16
+  },
+  {
+    "find": "cythara",
+    "replace": "cithara",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 17
+  },
+  {
+    "find": "cytharam",
+    "replace": "citharam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 17
+  },
+  {
+    "find": "cytharis",
+    "replace": "citharis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 17
+  },
+  {
+    "find": "cytharizāns",
+    "replace": "citharizāns",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 17
+  },
+  {
+    "find": "clype",
+    "replace": "clipe",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 18
+  },
+  {
+    "find": "clypei",
+    "replace": "clipei",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 18
+  },
+  {
+    "find": "clypeo",
+    "replace": "clipeo",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 18
+  },
+  {
+    "find": "clypeus",
+    "replace": "clipeus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 18
+  },
+  {
+    "find": "cepere",
+    "replace": "coepere",
+    "match_type": "whole_word",
+    "exceptions": "accepio",
+    "source_row": 19
+  },
+  {
+    "find": "cepio",
+    "replace": "coepio",
+    "match_type": "whole_word",
+    "exceptions": "accepio",
+    "source_row": 19
+  },
+  {
+    "find": "caepere",
+    "replace": "coepere",
+    "match_type": "whole_word",
+    "exceptions": "accepio",
+    "source_row": 19
+  },
+  {
+    "find": "cet",
+    "replace": "coet",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 20
+  },
+  {
+    "find": "cetus",
+    "replace": "coetus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 20
+  },
+  {
+    "find": "cetibus",
+    "replace": "coetibus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 20
+  },
+  {
+    "find": "cotidie",
+    "replace": "cottidie",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 21
+  },
+  {
+    "find": "quotidie",
+    "replace": "cottidie",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 21
+  },
+  {
+    "find": "quottidie",
+    "replace": "cottidie",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 21
+  },
+  {
+    "find": "cuius",
+    "replace": "cujus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 22
+  },
+  {
+    "find": "quum",
+    "replace": "cum",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 23
+  },
+  {
+    "find": "disrumpere",
+    "replace": "dirumpere",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 24
+  },
+  {
+    "find": "disrumpo",
+    "replace": "dirumpo",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 24
+  },
+  {
+    "find": "disrupisti",
+    "replace": "dirupisti",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 24
+  },
+  {
+    "find": "aecclesia",
+    "replace": "ecclesia",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 25
+  },
+  {
+    "find": "aecclesiae",
+    "replace": "ecclesiae",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 25
+  },
+  {
+    "find": "aecclesiam",
+    "replace": "ecclesiam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 25
+  },
+  {
+    "find": "aecclesiasticus",
+    "replace": "ecclesiasticus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 25
+  },
+  {
+    "find": "eius",
+    "replace": "ejus",
+    "match_type": "whole_word",
+    "exceptions": "Pompeius",
+    "source_row": 26
+  },
+  {
+    "find": "eiusque",
+    "replace": "ejusque",
+    "match_type": "whole_word",
+    "exceptions": "Pompeius",
+    "source_row": 26
+  },
+  {
+    "find": "eiusdem",
+    "replace": "ejusdem",
+    "match_type": "whole_word",
+    "exceptions": "Pompeius",
+    "source_row": 26
+  },
+  {
+    "find": "eleyson",
+    "replace": "eleison",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 27
+  },
+  {
+    "find": "exilio",
+    "replace": "exsilio",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 28
+  },
+  {
+    "find": "exilium",
+    "replace": "exsilium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 28
+  },
+  {
+    "find": "expect",
+    "replace": "exspect",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 29
+  },
+  {
+    "find": "extitit",
+    "replace": "exstitit",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 30
+  },
+  {
+    "find": "exult",
+    "replace": "exsult",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 31
+  },
+  {
+    "find": "exultemus",
+    "replace": "exsultemus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 31
+  },
+  {
+    "find": "exulto",
+    "replace": "exsulto",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 31
+  },
+  {
+    "find": "fen",
+    "replace": "foen",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 32
+  },
+  {
+    "find": "faen",
+    "replace": "foen",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 32
+  },
+  {
+    "find": "fragl",
+    "replace": "fragr",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 33
+  },
+  {
+    "find": "genitri",
+    "replace": "genetri",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 34
+  },
+  {
+    "find": "genitrix",
+    "replace": "genetrix",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 34
+  },
+  {
+    "find": "genitricis",
+    "replace": "genetricis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 34
+  },
+  {
+    "find": "gracia",
+    "replace": "gratia",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 36
+  },
+  {
+    "find": "arena",
+    "replace": "harena",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 37
+  },
+  {
+    "find": "arenae",
+    "replace": "harenae",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 37
+  },
+  {
+    "find": "arenam",
+    "replace": "harenam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 37
+  },
+  {
+    "find": "haereditat",
+    "replace": "hereditat",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 38
+  },
+  {
+    "find": "haereditatis",
+    "replace": "hereditatis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 38
+  },
+  {
+    "find": "haereditatum",
+    "replace": "hereditatum",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 38
+  },
+  {
+    "find": "hii",
+    "replace": "hi",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 39
+  },
+  {
+    "find": "huius",
+    "replace": "hujus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 40
+  },
+  {
+    "find": "inclitus",
+    "replace": "inclytus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 41
+  },
+  {
+    "find": "inquid",
+    "replace": "inquit",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 42
+  },
+  {
+    "find": "intellig",
+    "replace": "intelleg",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 43
+  },
+  {
+    "find": "intelligo",
+    "replace": "intellego",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 43
+  },
+  {
+    "find": "intelligentiae",
+    "replace": "intellegentiae",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 43
+  },
+  {
+    "find": "iam",
+    "replace": "jam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 44
+  },
+  {
+    "find": "ieiunium",
+    "replace": "jejunium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 45
+  },
+  {
+    "find": "iejunium",
+    "replace": "jejunium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 45
+  },
+  {
+    "find": "jocundita",
+    "replace": "jucundita",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 46
+  },
+  {
+    "find": "jocunditas",
+    "replace": "jucunditas",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 46
+  },
+  {
+    "find": "jocunditatis",
+    "replace": "jucunditatis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 46
+  },
+  {
+    "find": "iungat",
+    "replace": "jungat",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 47
+  },
+  {
+    "find": "iustitiae",
+    "replace": "justitiae",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 48
+  },
+  {
+    "find": "justitie",
+    "replace": "justitiae",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 48
+  },
+  {
+    "find": "iuxta",
+    "replace": "juxta",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 49
+  },
+  {
+    "find": "letus",
+    "replace": "laetus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 50
+  },
+  {
+    "find": "maius",
+    "replace": "majus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 52
+  },
+  {
+    "find": "margareta",
+    "replace": "margarita",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 53
+  },
+  {
+    "find": "menbris",
+    "replace": "membris",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 54
+  },
+  {
+    "find": "michi",
+    "replace": "mihi",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 55
+  },
+  {
+    "find": "millia",
+    "replace": "milia",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 56
+  },
+  {
+    "find": "millibus",
+    "replace": "milibus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 56
+  },
+  {
+    "find": "nunquam",
+    "replace": "numquam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 57
+  },
+  {
+    "find": "offere",
+    "replace": "offerre",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 58
+  },
+  {
+    "find": "offeremus",
+    "replace": "offerremus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 59
+  },
+  {
+    "find": "offerrentes",
+    "replace": "offerentes",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 60
+  },
+  {
+    "find": "offerret",
+    "replace": "offeret",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 60
+  },
+  {
+    "find": "offerrentur",
+    "replace": "offerentur",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 60
+  },
+  {
+    "find": "hortus",
+    "replace": "ortus",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 61
+  },
+  {
+    "find": "hostium",
+    "replace": "ostium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 62
+  },
+  {
+    "find": "pasca",
+    "replace": "pascha",
+    "match_type": "prefix",
+    "exceptions": "pascantur",
+    "source_row": 63
+  },
+  {
+    "find": "piae",
+    "replace": "pie",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 64
+  },
+  {
+    "find": "praesaepe",
+    "replace": "praesepe",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 65
+  },
+  {
+    "find": "praeli",
+    "replace": "proeli",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 66
+  },
+  {
+    "find": "praelium",
+    "replace": "proelium",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 66
+  },
+  {
+    "find": "praelior",
+    "replace": "proelior",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 66
+  },
+  {
+    "find": "praeliator",
+    "replace": "proeliator",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 66
+  },
+  {
+    "find": "praelialis",
+    "replace": "proelialis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 66
+  },
+  {
+    "find": "praecamur",
+    "replace": "precamur",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 67
+  },
+  {
+    "find": "presbiter",
+    "replace": "presbyter",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 68
+  },
+  {
+    "find": "pulcr",
+    "replace": "pulchr",
+    "match_type": "prefix",
+    "exceptions": "sepulcr",
+    "source_row": 69
+  },
+  {
+    "find": "pulcra",
+    "replace": "pulchra",
+    "match_type": "whole_word",
+    "exceptions": "sepulcr",
+    "source_row": 69
+  },
+  {
+    "find": "pulcritudine",
+    "replace": "pulchritudine",
+    "match_type": "whole_word",
+    "exceptions": "sepulcr",
+    "source_row": 69
+  },
+  {
+    "find": "quaecunque",
+    "replace": "quaecumque",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 70
+  },
+  {
+    "find": "quandam",
+    "replace": "quamdam",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 71
+  },
+  {
+    "find": "quatuor",
+    "replace": "quattuor",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 72
+  },
+  {
+    "find": "quicquid",
+    "replace": "quidquid",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 73
+  },
+  {
+    "find": "quodcunque",
+    "replace": "quodcumque",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 74
+  },
+  {
+    "find": "sabbaoth",
+    "replace": "sabaoth",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 75
+  },
+  {
+    "find": "saphiro",
+    "replace": "sapphyro",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 76
+  },
+  {
+    "find": "saphyro",
+    "replace": "sapphyro",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 76
+  },
+  {
+    "find": "sapphiro",
+    "replace": "sapphyro",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 76
+  },
+  {
+    "find": "sarcofagum",
+    "replace": "sarcophagum",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 77
+  },
+  {
+    "find": "satiebatur",
+    "replace": "satiabatur",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 78
+  },
+  {
+    "find": "scola",
+    "replace": "schola",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 79
+  },
+  {
+    "find": "sepulchr",
+    "replace": "sepulcr",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 80
+  },
+  {
+    "find": "sepulchro",
+    "replace": "sepulcro",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 80
+  },
+  {
+    "find": "sepulchrum",
+    "replace": "sepulcrum",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 80
+  },
+  {
+    "find": "solemnis",
+    "replace": "sollemnis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 81
+  },
+  {
+    "find": "solempnis",
+    "replace": "sollemnis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 81
+  },
+  {
+    "find": "sollempnis",
+    "replace": "sollemnis",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 81
+  },
+  {
+    "find": "temptav",
+    "replace": "tentav",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 82
+  },
+  {
+    "find": "temptavit",
+    "replace": "tentavit",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 82
+  },
+  {
+    "find": "temptaverunt",
+    "replace": "tentaverunt",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 82
+  },
+  {
+    "find": "tricesimo",
+    "replace": "trigesimo",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 83
+  },
+  {
+    "find": "velud",
+    "replace": "velut",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 84
+  },
+  {
+    "find": "veruntamen",
+    "replace": "verumtamen",
+    "match_type": "whole_word",
+    "exceptions": "",
+    "source_row": 85
+  },
+  {
+    "find": "vicesim",
+    "replace": "vigesim",
+    "match_type": "prefix",
+    "exceptions": "",
+    "source_row": 86
+  }
+]

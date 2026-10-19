@@ -1,0 +1,190 @@
+<?php
+
+/**
+ * @file
+ * Creates the CI Correction rule content type and imports legacy rules.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function ci_correction_rules_install() {
+  ci_correction_rules_install_content_type();
+  $result = ci_correction_rules_import_legacy_rules();
+  watchdog('ci_correction_rules', 'Imported @created legacy correction rules; skipped @skipped duplicates.', array(
+    '@created' => $result['created'],
+    '@skipped' => $result['skipped'],
+  ), WATCHDOG_NOTICE);
+}
+
+/**
+ * Creates the correction rule bundle and its fields if they do not exist.
+ */
+function ci_correction_rules_install_content_type() {
+  if (!node_type_load('ci_correction_rule')) {
+    node_type_save((object) array(
+      'type' => 'ci_correction_rule',
+      'name' => 'CI Correction rule',
+      'base' => 'node_content',
+      'module' => 'node',
+      'description' => 'A spelling or capitalization correction rule used by Cantus Index.',
+      'has_title' => FALSE,
+      'settings' => array(
+        'status_default' => NODE_PUBLISHED,
+        'promote_enabled' => FALSE,
+        'promote_default' => FALSE,
+        'sticky_enabled' => FALSE,
+        'sticky_default' => FALSE,
+        'show_submitted_info' => FALSE,
+      ),
+    ));
+  }
+
+  $definitions = array(
+    'field_ci_rule_category' => array(
+      'label' => 'Category',
+      'type' => 'list_text',
+      'widget' => 'options_select',
+      'formatter' => 'list_default',
+      'required' => TRUE,
+      'settings' => array('allowed_values' => array(
+        'spelling' => 'Spelling',
+        'capitalization' => 'Capitalization',
+      )),
+      'description' => '',
+    ),
+    'field_ci_rule_find' => array(
+      'label' => 'Find',
+      'type' => 'text',
+      'widget' => 'text_textfield',
+      'formatter' => 'text_default',
+      'required' => TRUE,
+      'settings' => array('max_length' => 255),
+      'description' => 'Enter the literal text to find. Do not use wildcards or regular expressions.',
+    ),
+    'field_ci_rule_replace' => array(
+      'label' => 'Replace with',
+      'type' => 'text',
+      'widget' => 'text_textfield',
+      'formatter' => 'text_default',
+      'required' => TRUE,
+      'settings' => array('max_length' => 255),
+      'description' => 'Enter the preferred spelling or capitalization.',
+    ),
+    'field_ci_rule_match_type' => array(
+      'label' => 'Match type',
+      'type' => 'list_text',
+      'widget' => 'options_select',
+      'formatter' => 'list_default',
+      'required' => TRUE,
+      'settings' => array('allowed_values' => array(
+        'whole_word' => 'Whole word',
+        'part_of_word' => 'Part of word',
+        'prefix' => 'Prefix',
+      )),
+      'description' => 'Whole word matches the entire word; Part of word matches within a word; Prefix matches at its beginning.',
+    ),
+    'field_ci_rule_exceptions' => array(
+      'label' => 'Exceptions',
+      'type' => 'text_long',
+      'widget' => 'text_textarea',
+      'formatter' => 'text_default',
+      'required' => FALSE,
+      'settings' => array(),
+      'description' => 'Enter one literal exception per line. A word containing an exception is excluded, regardless of letter case.',
+    ),
+  );
+
+  $weight = 0;
+  foreach ($definitions as $field_name => $definition) {
+    if (!field_info_field($field_name)) {
+      field_create_field(array(
+        'field_name' => $field_name,
+        'type' => $definition['type'],
+        'cardinality' => 1,
+        'translatable' => FALSE,
+        'settings' => $definition['settings'],
+      ));
+    }
+
+    if (!field_info_instance('node', $field_name, 'ci_correction_rule')) {
+      field_create_instance(array(
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => 'ci_correction_rule',
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => $definition['required'],
+        'settings' => array('text_processing' => 0),
+        'widget' => array('type' => $definition['widget'], 'weight' => $weight),
+        'display' => array('default' => array(
+          'label' => 'above',
+          'type' => $definition['formatter'],
+          'weight' => $weight,
+        )),
+      ));
+    }
+    $weight++;
+  }
+}
+
+/**
+ * Imports the correction rules captured from Latinchant's legacy behavior.
+ */
+function ci_correction_rules_import_legacy_rules() {
+  $path = backdrop_get_path('module', 'ci_correction_rules') . '/data/legacy_spelling_rules.json';
+  $json = @file_get_contents(BACKDROP_ROOT . '/' . $path);
+  $rules = $json === FALSE ? FALSE : backdrop_json_decode($json);
+  if (empty($rules) || !is_array($rules)) {
+    watchdog('ci_correction_rules', 'Could not load the legacy correction rules file.', array(), WATCHDOG_ERROR);
+    return array('created' => 0, 'skipped' => 0);
+  }
+
+  $created = 0;
+  $skipped = 0;
+  foreach ($rules as $rule) {
+    if (empty($rule['find']) || !isset($rule['replace'], $rule['match_type'])) {
+      continue;
+    }
+
+    $query = new EntityFieldQuery();
+    $existing = $query
+      ->entityCondition('entity_type', 'node')
+      ->entityCondition('bundle', 'ci_correction_rule')
+      ->fieldCondition('field_ci_rule_category', 'value', 'spelling')
+      ->fieldCondition('field_ci_rule_find', 'value', $rule['find'])
+      ->fieldCondition('field_ci_rule_replace', 'value', $rule['replace'])
+      ->fieldCondition('field_ci_rule_match_type', 'value', $rule['match_type'])
+      ->addTag('DANGEROUS_ACCESS_CHECK_OPT_OUT')
+      ->range(0, 1)
+      ->execute();
+
+    if (empty($existing['node'])) {
+      $node = entity_create('node', array(
+        'type' => 'ci_correction_rule',
+        'langcode' => LANGUAGE_NONE,
+        'uid' => 1,
+        'status' => NODE_PUBLISHED,
+        'promote' => 0,
+        'sticky' => 0,
+      ));
+      $values = array(
+        'field_ci_rule_category' => 'spelling',
+        'field_ci_rule_find' => $rule['find'],
+        'field_ci_rule_replace' => $rule['replace'],
+        'field_ci_rule_match_type' => $rule['match_type'],
+        'field_ci_rule_exceptions' => isset($rule['exceptions']) ? $rule['exceptions'] : '',
+      );
+      foreach ($values as $field_name => $value) {
+        $node->{$field_name}[LANGUAGE_NONE][0]['value'] = $value;
+      }
+      node_save($node);
+      $created++;
+    }
+    else {
+      $skipped++;
+    }
+  }
+
+  return array('created' => $created, 'skipped' => $skipped);
+}
