@@ -34,6 +34,23 @@ function ci_correction_rules_review_page() {
   $affected = array();
   $node_words = array();
   $rule_rows = array();
+  $rule_row_indexes = array();
+  $pending_chants = array();
+  $page_rule_nids = array_map(function ($rule) {
+    return (int) $rule['nid'];
+  }, $page_rules);
+  $applied_counts = array();
+  $applied_query = db_select('aa_corrections', 'c');
+  $applied_query->innerJoin('node', 'n', 'n.nid = c.nid');
+  $applied_query->addField('c', 'rule_nid');
+  $applied_query->addExpression('COUNT(DISTINCT c.nid)', 'chant_count');
+  $applied_query->condition('n.type', 'master_chant');
+  $applied_query->condition('c.applied', 1);
+  $applied_query->condition('c.rule_nid', $page_rule_nids, 'IN');
+  $applied_query->groupBy('c.rule_nid');
+  foreach ($applied_query->execute() as $count_row) {
+    $applied_counts[(int) $count_row->rule_nid] = (int) $count_row->chant_count;
+  }
   $match_labels = array(
     'whole_word' => t('Whole word'),
     'part_of_word' => t('Part of word'),
@@ -41,13 +58,17 @@ function ci_correction_rules_review_page() {
   );
 
   foreach ($page_rules as $rule) {
+    $rule_nid = (int) $rule['nid'];
     $rule_rows[] = array(
       l($rule['title'], 'node/' . (int) $rule['nid']),
       check_plain($rule['old']),
       check_plain($rule['new']),
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
       nl2br(check_plain($rule['exceptions'])),
+      isset($applied_counts[$rule_nid]) ? $applied_counts[$rule_nid] : 0,
+      0,
     );
+    $rule_row_indexes[$rule_nid] = count($rule_rows) - 1;
 
     if ($rule['old'] === '') {
       continue;
@@ -81,9 +102,14 @@ function ci_correction_rules_review_page() {
           $affected[$key]['old'] = $old_word;
           $affected[$key]['new'] = $new_word;
           $affected[$key]['links'][$nid] = l($nid, 'node/' . $nid);
+          $pending_chants[$rule_nid][$nid] = TRUE;
         }
       }
     }
+  }
+
+  foreach ($pending_chants as $rule_nid => $chants) {
+    $rule_rows[$rule_row_indexes[$rule_nid]][6] = count($chants);
   }
 
   $navigation = array();
@@ -101,7 +127,7 @@ function ci_correction_rules_review_page() {
   );
   $build['rules'] = array(
     '#theme' => 'table',
-    '#header' => array(t('Correction rule'), t('Find'), t('Replace with'), t('Match type'), t('Exceptions')),
+    '#header' => array(t('Correction rule'), t('Find'), t('Replace with'), t('Match type'), t('Exceptions'), t('Applied'), t('Pending')),
     '#rows' => $rule_rows,
   );
   $build['navigation_top'] = array('#markup' => '<p>' . implode(' | ', $navigation) . '</p>');
