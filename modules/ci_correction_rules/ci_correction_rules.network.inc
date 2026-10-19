@@ -149,7 +149,7 @@ function ci_correction_rules_network_scan_rule($rule_id) {
  * Manually scans one correction rule across all concordance databases.
  *
  * Example:
- * /corrections/network-scan?rule_id=1
+ * /correction-tools/network-scan?rule_id=1
  */
 function ci_correction_rules_network_scan() {
 
@@ -161,7 +161,7 @@ function ci_correction_rules_network_scan() {
     return array(
       '#markup' =>
         '<p>Use for example: '
-        . '<code>/corrections/network-scan?rule_id=1</code>'
+        . '<code>/correction-tools/network-scan?rule_id=1</code>'
         . '</p>',
     );
   }
@@ -295,7 +295,7 @@ function ci_correction_rules_network_update_page() {
       'ciCorrectionRulesNetworkUpdate' => array(
         'ruleIds' => $rule_ids,
         'url' => url(
-          'corrections/network-update-run',
+          'correction-tools/network-update/run',
           array(
             'absolute' => TRUE,
           )
@@ -529,7 +529,7 @@ JS;
     '<p id="correction-network-reload" style="display:none;">'
     . l(
       'Start again',
-      'corrections/network-update',
+        'correction-tools/network-update',
       array(
         'attributes' => array(
           'class' => array('button'),
@@ -749,7 +749,7 @@ function ci_correction_rules_network_page() {
 
          $row[] = l(
             '<strong>' . (int) $count . '</strong>',
-            'concordance-spelling/' . $rule_id . '/' . $db,
+            'correction-tools/concordance/' . $rule_id . '/' . $db,
             array(
               'html' => TRUE,
             )
@@ -800,7 +800,7 @@ function ci_correction_rules_network_page() {
  * Displays matching concordance records for one correction rule and database.
  *
  * Example:
- * /concordance-spelling/1/CD
+ * /correction-tools/concordance/1/CD
  *
  * Matching uses exactly the same case-sensitive whole-word logic as the
  * correction scanner. The detail page scans only the selected database.
@@ -991,7 +991,7 @@ function ci_correction_rules_network_detail_page($rule_id, $db) {
       '<p>'
       . l(
         'Back to concordance spelling suggestions',
-        'concordance-spelling'
+        'correction-tools/concordance'
       )
       . '</p>',
   );

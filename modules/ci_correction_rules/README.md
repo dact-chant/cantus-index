@@ -7,11 +7,12 @@ with` whenever a rule is saved.
 
 Enable the module at `admin/modules`. Installation creates the content type and
 its fields, then imports the spelling rules captured from Latinchant's existing
-correction behavior. The module adds a paged rule list at
-`admin/content/ci-correction-rules`, a direct review page at
-`admin/content/ci-correction-review`, and a change history at
-`admin/content/ci-correction-audit`. Review and rule management require the
-**Administer CI correction rules** permission or **Administer nodes**.
+correction behavior. The module adds a **Correction tools** link to the regular
+site menu. Its pages use the Cantus Index theme and unique paths under
+`/correction-tools`: `/rules`, `/review`, `/history`, `/concordance`,
+`/network-scan`, and `/network-update`. Rule add, edit, and delete forms also
+use paths under `/correction-tools/rules`. Access is restricted to accounts
+with the **debra** role.
 
 The module exposes `ci_correction_rules_load()` to retrieve published rules
 and `ci_correction_rules_apply($word, $rule)` to apply one rule to one word.
@@ -35,9 +36,9 @@ ambiguous older rows stay unlinked. Previously imported pending rows remain
 available for one-time application from correction history. New corrections
 do not enter a pending import queue.
 
-The module also preserves the correction network tools at
-`/concordance-spelling`, `/corrections/network-scan`, and
-`/corrections/network-update`. Their existing `aa_correction_rules`,
+The module also preserves the concordance and correction network tools at
+`/correction-tools/concordance`, `/correction-tools/network-scan`, and
+`/correction-tools/network-update`. Their existing `aa_correction_rules`,
 `aa_correction_network_stats`, and `aaconcordances2` data is retained. Newly
 applied corrections continue to add their exact word pair to the network rules
 table.
