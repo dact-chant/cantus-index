@@ -239,14 +239,31 @@ function ci_correction_rules_node_presave($node) {
  */
 function ci_correction_rules_admin_page() {
   $query = db_select('node', 'n')
-    ->fields('n', array('nid'))
+    ->fields('n', array('nid'));
+  $query->leftJoin('field_data_field_ci_rule_find', 'f', "f.entity_id = n.nid AND f.entity_type = 'node' AND f.bundle = 'ci_correction_rule' AND f.deleted = 0 AND f.delta = 0");
+  $query
     ->condition('n.type', 'ci_correction_rule')
-    ->orderBy('n.nid', 'DESC')
+    ->orderBy('f.field_ci_rule_find_value', 'ASC')
+    ->orderBy('n.nid', 'ASC')
     ->extend('PagerDefault')
     ->limit(50);
   $nids = $query->execute()->fetchCol();
   $nodes = $nids ? node_load_multiple($nids) : array();
   $rows = array();
+  $applied_counts = array();
+
+  if (db_table_exists('aa_corrections') && db_field_exists('aa_corrections', 'rule_nid')) {
+    $count_query = db_select('aa_corrections', 'c');
+    $count_query->fields('c', array('rule_nid'));
+    $count_query->addExpression('COUNT(*)', 'record_count');
+    $count_query->condition('c.applied', 1);
+    $count_query->groupBy('c.rule_nid');
+    foreach ($count_query->execute() as $count_row) {
+      if (!empty($count_row->rule_nid)) {
+        $applied_counts[(int) $count_row->rule_nid] = (int) $count_row->record_count;
+      }
+    }
+  }
 
   foreach ($nodes as $node) {
     $rule = ci_correction_rules_get_rule($node);
@@ -270,6 +287,7 @@ function ci_correction_rules_admin_page() {
       l($node->title, 'node/' . (int) $node->nid),
       isset($category_labels[$rule['category']]) ? $category_labels[$rule['category']] : '',
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
+      isset($applied_counts[$node->nid]) ? $applied_counts[$node->nid] : 0,
       $node->status ? t('Published') : t('Unpublished'),
       implode(' | ', $operations),
     );
@@ -284,6 +302,7 @@ function ci_correction_rules_admin_page() {
       t('Find → Replace with'),
       t('Category'),
       t('Match type'),
+      t('Applied changes'),
       t('Status'),
       t('Operations'),
     ),
