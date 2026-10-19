@@ -28,12 +28,13 @@ function ci_correction_rules_manage_access($account = NULL) {
 /**
  * Implements hook_menu_alter().
  *
- * Lock down legacy routes while my_corrections remains enabled. New links use
- * the unique correction-tools paths below.
+ * Redirect obsolete import and overview pages into the current tools and lock
+ * down the remaining legacy routes while my_corrections remains enabled.
  */
 function ci_correction_rules_menu_alter(&$items) {
   $legacy_paths = array(
     'corrections',
+    'corrections/import',
     'corrections/network-scan',
     'corrections/network-update',
     'corrections/network-update-run',
@@ -47,6 +48,24 @@ function ci_correction_rules_menu_alter(&$items) {
       unset($items[$path]['access arguments']);
     }
   }
+
+  if (isset($items['corrections'])) {
+    $items['corrections']['title'] = 'Correction history';
+    $items['corrections']['page callback'] = 'ci_correction_rules_legacy_route_redirect';
+    $items['corrections']['page arguments'] = array('correction-tools/history');
+    $items['corrections']['type'] = MENU_CALLBACK;
+  }
+  if (isset($items['corrections/import'])) {
+    $items['corrections/import']['page callback'] = 'ci_correction_rules_legacy_route_redirect';
+    $items['corrections/import']['page arguments'] = array('correction-tools/review');
+  }
+}
+
+/**
+ * Redirects an obsolete correction route to its current replacement.
+ */
+function ci_correction_rules_legacy_route_redirect($destination) {
+  backdrop_goto($destination);
 }
 
 /**
