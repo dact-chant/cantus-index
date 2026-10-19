@@ -9,32 +9,14 @@ require_once __DIR__ . '/ci_correction_rules.network.inc';
 require_once __DIR__ . '/ci_correction_rules.review.inc';
 
 /**
- * Implements hook_permission().
- */
-function ci_correction_rules_permission() {
-  return array(
-    'administer ci correction rules' => array(
-      'title' => t('Administer CI correction rules'),
-      'description' => t('Manage correction rules, review chant matches, apply changes, and view the correction history.'),
-    ),
-  );
-}
-
-/**
- * Checks access to correction review and management pages.
+ * Checks access to correction tools for the debra role.
  */
 function ci_correction_rules_manage_access($account = NULL) {
   global $user;
   $account = $account ? $account : $user;
 
-  if (user_access('administer ci correction rules', $account) || user_access('administer nodes', $account)) {
-    return TRUE;
-  }
-
-  // Preserve access previously granted by the legacy my_corrections module.
-  $allowed_roles = array('debra', 'administrator', 'admin');
   foreach (!empty($account->roles) ? $account->roles : array() as $role_name) {
-    if (in_array(strtolower(trim((string) $role_name)), $allowed_roles, TRUE)) {
+    if (strtolower(trim((string) $role_name)) === 'debra') {
       return TRUE;
     }
   }
@@ -43,78 +25,154 @@ function ci_correction_rules_manage_access($account = NULL) {
 }
 
 /**
+ * Implements hook_menu_alter().
+ *
+ * Lock down legacy routes while my_corrections remains enabled. New links use
+ * the unique correction-tools paths below.
+ */
+function ci_correction_rules_menu_alter(&$items) {
+  $legacy_paths = array(
+    'corrections',
+    'corrections/network-scan',
+    'corrections/network-update',
+    'corrections/network-update-run',
+    'concordance-spelling',
+    'concordance-spelling/%/%',
+  );
+
+  foreach ($legacy_paths as $path) {
+    if (isset($items[$path])) {
+      $items[$path]['access callback'] = 'ci_correction_rules_manage_access';
+      unset($items[$path]['access arguments']);
+    }
+  }
+}
+
+/**
  * Implements hook_menu().
  */
 function ci_correction_rules_menu() {
   $items = array();
 
-  $items['admin/content/ci-correction-rules'] = array(
+  $items['correction-tools'] = array(
+    'title' => 'Correction tools',
+    'description' => 'Review correction rules, apply chant corrections, and view concordance statistics.',
+    'page callback' => 'ci_correction_rules_tools_page',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_NORMAL_ITEM,
+    'menu_name' => 'main-menu',
+  );
+
+  $items['correction-tools/rules'] = array(
     'title' => 'Correction rules',
     'description' => 'View and manage spelling and capitalization correction rules.',
     'page callback' => 'ci_correction_rules_admin_page',
     'access callback' => 'ci_correction_rules_manage_access',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 20,
+    'type' => MENU_CALLBACK,
   );
-
-  $items['admin/content/ci-correction-review'] = array(
+  $items['correction-tools/rules/add'] = array(
+    'title' => 'Add correction rule',
+    'page callback' => 'node_add',
+    'page arguments' => array('ci_correction_rule'),
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_CALLBACK,
+    'file' => 'node.pages.inc',
+    'file path' => backdrop_get_path('module', 'node'),
+  );
+  $items['correction-tools/rules/%node/edit'] = array(
+    'title' => 'Edit correction rule',
+    'page callback' => 'node_page_edit',
+    'page arguments' => array(2),
+    'access callback' => 'ci_correction_rules_node_operation_access',
+    'access arguments' => array('update', 2),
+    'type' => MENU_CALLBACK,
+    'file' => 'node.pages.inc',
+    'file path' => backdrop_get_path('module', 'node'),
+  );
+  $items['correction-tools/rules/%node/delete'] = array(
+    'title' => 'Delete correction rule',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('node_delete_confirm', 2),
+    'access callback' => 'ci_correction_rules_node_operation_access',
+    'access arguments' => array('delete', 2),
+    'type' => MENU_CALLBACK,
+    'file' => 'node.pages.inc',
+    'file path' => backdrop_get_path('module', 'node'),
+  );
+  $items['correction-tools/review'] = array(
     'title' => 'Review correction matches',
     'description' => 'Review and apply correction rules to Cantus Index chants.',
     'page callback' => 'ci_correction_rules_review_page',
     'access callback' => 'ci_correction_rules_manage_access',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 21,
+    'type' => MENU_CALLBACK,
   );
 
-  $items['admin/content/ci-correction-audit'] = array(
+  $items['correction-tools/history'] = array(
     'title' => 'Correction history',
     'description' => 'Review correction changes applied to Cantus Index chants.',
     'page callback' => 'ci_correction_rules_audit_page',
     'access callback' => 'ci_correction_rules_manage_access',
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 22,
+    'type' => MENU_CALLBACK,
   );
 
-  // Preserve the concordance spelling tools provided by my_corrections.
-  $items['corrections'] = array(
-    'title' => 'Cantus corrections',
-    'page callback' => 'ci_correction_rules_review_page',
+  $items['correction-tools/concordance'] = array(
+    'title' => 'Concordance spelling',
+    'page callback' => 'ci_correction_rules_network_page',
     'access callback' => 'ci_correction_rules_manage_access',
-    'type' => MENU_NORMAL_ITEM,
+    'type' => MENU_CALLBACK,
   );
-  $items['corrections/network-scan'] = array(
+  $items['correction-tools/concordance/%/%'] = array(
+    'title' => 'Concordance spelling details',
+    'page callback' => 'ci_correction_rules_network_detail_page',
+    'page arguments' => array(2, 3),
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_CALLBACK,
+  );
+  $items['correction-tools/network-scan'] = array(
     'title' => 'Correction network scan',
     'page callback' => 'ci_correction_rules_network_scan',
     'access callback' => 'ci_correction_rules_manage_access',
     'type' => MENU_CALLBACK,
   );
-  $items['corrections/network-update'] = array(
+  $items['correction-tools/network-update'] = array(
     'title' => 'Update correction network statistics',
     'page callback' => 'ci_correction_rules_network_update_page',
     'access callback' => 'ci_correction_rules_manage_access',
     'type' => MENU_CALLBACK,
   );
-  $items['corrections/network-update-run'] = array(
+  $items['correction-tools/network-update/run'] = array(
     'title' => 'Update correction network statistics - run',
     'page callback' => 'ci_correction_rules_network_update_run',
     'access callback' => 'ci_correction_rules_manage_access',
     'type' => MENU_CALLBACK,
   );
-  $items['concordance-spelling'] = array(
-    'title' => 'Concordance spelling suggestions',
-    'page callback' => 'ci_correction_rules_network_page',
-    'access callback' => TRUE,
-    'type' => MENU_NORMAL_ITEM,
-  );
-  $items['concordance-spelling/%/%'] = array(
-    'title' => 'Concordance spelling suggestion details',
-    'page callback' => 'ci_correction_rules_network_detail_page',
-    'page arguments' => array(1, 2),
-    'access callback' => TRUE,
-    'type' => MENU_CALLBACK,
+  return $items;
+}
+
+/**
+ * Adds a compact navigation row to every correction-tools page.
+ */
+function ci_correction_rules_page_alter(&$page) {
+  if (strpos(current_path(), 'correction-tools') !== 0) {
+    return;
+  }
+
+  $links = array(
+    l(t('Overview'), 'correction-tools'),
+    l(t('Rules'), 'correction-tools/rules'),
+    l(t('Review corrections'), 'correction-tools/review'),
+    l(t('Correction history'), 'correction-tools/history'),
+    l(t('Concordance spelling'), 'correction-tools/concordance'),
+    l(t('Network scan'), 'correction-tools/network-scan'),
+    l(t('Update network statistics'), 'correction-tools/network-update'),
   );
 
-  return $items;
+  if (isset($page['content']) && is_array($page['content'])) {
+    $page['content']['ci_correction_rules_navigation'] = array(
+      '#markup' => '<nav class="correction-tools-navigation">' . implode(' | ', $links) . '</nav>',
+      '#weight' => -100,
+    );
+  }
 }
 
 /**
@@ -123,10 +181,40 @@ function ci_correction_rules_menu() {
 function ci_correction_rules_node_access($node, $op, $account) {
   $is_rule = (is_string($node) && $node === 'ci_correction_rule')
     || (is_object($node) && isset($node->type) && $node->type === 'ci_correction_rule');
-  if ($is_rule && ci_correction_rules_manage_access($account)
-    && in_array($op, array('create', 'view', 'update', 'delete'), TRUE)) {
-    return NODE_ACCESS_ALLOW;
+  if ($is_rule && in_array($op, array('create', 'update', 'delete'), TRUE)) {
+    return ci_correction_rules_manage_access($account) ? NODE_ACCESS_ALLOW : NODE_ACCESS_DENY;
   }
+}
+
+/**
+ * Checks access for correction-rule node edit and delete forms.
+ */
+function ci_correction_rules_node_operation_access($op, $node) {
+  return is_object($node)
+    && isset($node->type)
+    && $node->type === 'ci_correction_rule'
+    && ci_correction_rules_manage_access()
+    && node_access($op, $node);
+}
+
+/**
+ * Landing page listing all correction tools.
+ */
+function ci_correction_rules_tools_page() {
+  $links = array(
+    l(t('Correction rules'), 'correction-tools/rules'),
+    l(t('Review correction matches'), 'correction-tools/review'),
+    l(t('Correction history'), 'correction-tools/history'),
+    l(t('Concordance spelling'), 'correction-tools/concordance'),
+    l(t('Correction network scan'), 'correction-tools/network-scan'),
+    l(t('Update correction network statistics'), 'correction-tools/network-update'),
+  );
+
+  return array(
+    '#theme' => 'item_list',
+    '#title' => t('Correction tools'),
+    '#items' => $links,
+  );
 }
 
 /**
@@ -162,11 +250,11 @@ function ci_correction_rules_admin_page() {
   foreach ($nodes as $node) {
     $rule = ci_correction_rules_get_rule($node);
     $operations = array();
-    if (node_access('update', $node)) {
-      $operations[] = l(t('Edit'), 'node/' . $node->nid . '/edit');
+    if (ci_correction_rules_manage_access()) {
+      $operations[] = l(t('Edit'), 'correction-tools/rules/' . $node->nid . '/edit');
     }
-    if (node_access('delete', $node)) {
-      $operations[] = l(t('Delete'), 'node/' . $node->nid . '/delete');
+    if (ci_correction_rules_manage_access()) {
+      $operations[] = l(t('Delete'), 'correction-tools/rules/' . $node->nid . '/delete');
     }
     $category_labels = array(
       'spelling' => t('Spelling'),
@@ -187,7 +275,7 @@ function ci_correction_rules_admin_page() {
   }
 
   $build['add'] = array(
-    '#markup' => '<p>' . l(t('Add a correction rule'), 'node/add/ci-correction-rule') . '</p>',
+    '#markup' => '<p>' . l(t('Add a correction rule'), 'correction-tools/rules/add') . '</p>',
   );
   $build['rules'] = array(
     '#theme' => 'table',

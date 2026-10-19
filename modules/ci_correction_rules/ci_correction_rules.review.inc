@@ -33,7 +33,7 @@ function ci_correction_rules_review_page() {
 
   foreach ($page_rules as $rule) {
     $rule_rows[] = array(
-      l($rule['title'], 'node/' . (int) $rule['nid'] . '/edit'),
+      l($rule['title'], 'correction-tools/rules/' . (int) $rule['nid'] . '/edit'),
       check_plain($rule['old']),
       check_plain($rule['new']),
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
@@ -79,16 +79,16 @@ function ci_correction_rules_review_page() {
 
   $navigation = array();
   if ($page > 0) {
-    $navigation[] = l(t('Previous corrections'), 'admin/content/ci-correction-review', array('query' => array('page' => $page - 1)));
+    $navigation[] = l(t('Previous corrections'), 'correction-tools/review', array('query' => array('page' => $page - 1)));
   }
   $navigation[] = t('Page @current of @total', array('@current' => $page + 1, '@total' => $total_pages));
   if ($page + 1 < $total_pages) {
-    $navigation[] = l(t('Next corrections'), 'admin/content/ci-correction-review', array('query' => array('page' => $page + 1)));
+    $navigation[] = l(t('Next corrections'), 'correction-tools/review', array('query' => array('page' => $page + 1)));
   }
 
   $build['intro'] = array(
     '#markup' => '<p>' . t('Select the chant corrections to apply now. Selected changes are written directly to each chant and recorded in the correction history.')
-      . ' ' . l(t('View correction history'), 'admin/content/ci-correction-audit') . '</p>',
+      . ' ' . l(t('View correction history'), 'correction-tools/history') . '</p>',
   );
   $build['rules'] = array(
     '#theme' => 'table',
@@ -331,7 +331,7 @@ function ci_correction_rules_review_form_submit($form, &$form_state) {
   if ($errors) {
     backdrop_set_message(theme('item_list', array('items' => $errors)), 'warning');
   }
-  $form_state['redirect'] = 'admin/content/ci-correction-review';
+  $form_state['redirect'] = 'correction-tools/review';
 }
 
 /**
@@ -353,7 +353,7 @@ function ci_correction_rules_audit_page() {
     $chant = node_load((int) $record->nid);
     $chant_link = $chant ? l($chant->title, 'node/' . $chant->nid) : t('Missing node @nid', array('@nid' => $record->nid));
     $rule = !empty($record->rule_nid) ? node_load((int) $record->rule_nid) : FALSE;
-    $rule_link = $rule ? l($rule->title, 'node/' . $rule->nid . '/edit') : t('Unlinked legacy record');
+    $rule_link = $rule ? l($rule->title, 'correction-tools/rules/' . $rule->nid . '/edit') : t('Unlinked legacy record');
     $account = !empty($record->applied_uid) ? user_load((int) $record->applied_uid) : FALSE;
     $rows[] = array(
       (int) $record->id,
@@ -443,7 +443,7 @@ function ci_correction_rules_apply_legacy_pending_form_submit($form, &$form_stat
     }
   }
   backdrop_set_message(t('Applied @count previously imported corrections.', array('@count' => $applied)));
-  $form_state['redirect'] = 'admin/content/ci-correction-audit';
+  $form_state['redirect'] = 'correction-tools/history';
 }
 
 /**
