@@ -351,6 +351,7 @@ function ci_correction_rules_audit_page() {
     return array('#markup' => '<p>' . t('The correction audit table is not ready. Run the database updates first.') . '</p>');
   }
 
+  ci_correction_rules_cleanup_pending_records();
   $pending = (int) db_query('SELECT COUNT(*) FROM {aa_corrections} WHERE applied = 0')->fetchField();
   $query = db_select('aa_corrections', 'c')
     ->fields('c', array('id', 'nid', 'rule_nid', 'misspelled_word', 'correct_word', 'applied', 'applied_at', 'applied_uid'))
@@ -408,6 +409,7 @@ function ci_correction_rules_apply_legacy_pending_form($form, &$form_state, $pen
  */
 function ci_correction_rules_apply_legacy_pending_form_submit($form, &$form_state) {
   global $user;
+  ci_correction_rules_cleanup_pending_records();
   $rows = db_select('aa_corrections', 'c')
     ->fields('c', array('id', 'nid', 'misspelled_word', 'correct_word', 'rule_nid'))
     ->condition('c.applied', 0)
@@ -453,6 +455,107 @@ function ci_correction_rules_apply_legacy_pending_form_submit($form, &$form_stat
   }
   backdrop_set_message(t('Applied @count previously imported corrections.', array('@count' => $applied)));
   $form_state['redirect'] = 'correction-tools/history';
+}
+
+/**
+ * Permanently removes stale, unapplied legacy records that cannot be applied.
+ *
+ * A pending record is stale if its chant no longer exists, has no full text,
+ * or no longer contains the original misspelled word. The last case is treated
+ * as a correction that has already been made manually.
+ *
+ * @param int|null $rule_nid
+ *   Optional rule ID to limit cleanup to one rule.
+ *
+ * @return array
+ *   Counts of deleted records, keyed by reason.
+ */
+function ci_correction_rules_cleanup_pending_records($rule_nid = NULL) {
+  $deleted = array('missing_chant' => 0, 'word_not_present' => 0);
+  if (!db_table_exists('aa_corrections') || !db_field_exists('aa_corrections', 'rule_nid')) {
+    return $deleted;
+  }
+
+  $query = db_select('aa_corrections', 'c')
+    ->fields('c', array('id', 'nid', 'misspelled_word', 'correct_word'))
+    ->condition('c.applied', 0)
+    ->orderBy('c.id', 'ASC');
+  if ($rule_nid !== NULL) {
+    $query->condition('c.rule_nid', (int) $rule_nid);
+  }
+
+  $chants = array();
+  foreach ($query->execute() as $record) {
+    $nid = (int) $record->nid;
+    if (!array_key_exists($nid, $chants)) {
+      $node = node_load($nid);
+      $chants[$nid] = array(
+        'exists' => (bool) $node,
+        'text' => $node ? ci_correction_rules_get_full_text($node) : FALSE,
+      );
+    }
+
+    $reason = NULL;
+    if (!$chants[$nid]['exists']) {
+      $reason = 'missing_chant';
+    }
+    else {
+      $word_status = ci_correction_rules_pending_word_status(
+        $chants[$nid]['text'],
+        $record->misspelled_word
+      );
+      if (in_array($word_status, array('missing_text', 'word_not_present'), TRUE)) {
+        $reason = 'word_not_present';
+      }
+    }
+
+    if ($reason !== NULL) {
+      db_delete('aa_corrections')
+        ->condition('id', (int) $record->id)
+        ->condition('applied', 0)
+        ->execute();
+      $deleted[$reason]++;
+    }
+  }
+
+  $total = $deleted['missing_chant'] + $deleted['word_not_present'];
+  if ($total) {
+    watchdog('ci_correction_rules', 'Removed @total obsolete pending correction records (@missing missing chants, @absent original words).', array(
+      '@total' => $total,
+      '@missing' => $deleted['missing_chant'],
+      '@absent' => $deleted['word_not_present'],
+    ), WATCHDOG_NOTICE);
+  }
+
+  return $deleted;
+}
+
+/**
+ * Checks whether a pending record's original word can still be found.
+ *
+ * @param string|false $full_text
+ *   The current chant full text, or FALSE when it is unavailable.
+ * @param string $misspelled_word
+ *   The original word recorded by the import.
+ *
+ * @return string
+ *   One of: missing_text, word_present, word_not_present, or uncheckable.
+ */
+function ci_correction_rules_pending_word_status($full_text, $misspelled_word) {
+  if ($full_text === FALSE) {
+    return 'missing_text';
+  }
+  $misspelled_word = trim((string) $misspelled_word);
+  if ($misspelled_word === '') {
+    return 'word_not_present';
+  }
+
+  $count = 0;
+  $result = ci_correction_rules_replace_word($full_text, $misspelled_word, '', $count);
+  if ($result === NULL) {
+    return 'uncheckable';
+  }
+  return $count > 0 ? 'word_present' : 'word_not_present';
 }
 
 /**
@@ -557,6 +660,7 @@ function ci_correction_rules_rule_changes_block($node) {
   }
 
   $rule = ci_correction_rules_get_rule($node);
+  ci_correction_rules_cleanup_pending_records((int) $node->nid);
   $applied_total = (int) db_query(
     'SELECT COUNT(*) FROM {aa_corrections} WHERE rule_nid = :rule_nid AND applied = 1',
     array(':rule_nid' => (int) $node->nid)
