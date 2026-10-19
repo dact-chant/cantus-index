@@ -77,6 +77,14 @@ foreach ($replacement_cases as $index => $case) {
 
 echo count($replacement_cases) . ' text replacement regression checks passed.' . PHP_EOL;
 
+$text_changes = ci_correction_rules_find_text_changes('eius eius, Pompeius', $base_rule);
+if (count($text_changes) !== 1 || $text_changes[0]['old'] !== 'eius'
+  || $text_changes[0]['new'] !== 'ejus' || $text_changes[0]['count'] !== 2) {
+  fwrite(STDERR, 'Rule-node suggestion grouping check failed.' . PHP_EOL);
+  exit(1);
+}
+echo '1 rule-node suggestion grouping check passed.' . PHP_EOL;
+
 $debra_account = (object) array('roles' => array(3 => 'debra'));
 $admin_account = (object) array('roles' => array(2 => 'admin'));
 $administrator_account = (object) array('roles' => array(4 => 'administrator'));

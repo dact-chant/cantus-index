@@ -11,11 +11,20 @@ function ci_correction_rules_review_page() {
     return array('#markup' => '<p>' . t('The correction audit table is not ready. Run the database updates first.') . '</p>');
   }
 
-  $rules = ci_correction_rules_load('spelling', TRUE);
+  $rule_filter = isset($_GET['rule_nid']) ? max(0, (int) $_GET['rule_nid']) : 0;
+  if ($rule_filter) {
+    $rules = ci_correction_rules_load(NULL, TRUE);
+    $rules = array_values(array_filter($rules, function ($rule) use ($rule_filter) {
+      return (int) $rule['nid'] === $rule_filter;
+    }));
+  }
+  else {
+    $rules = ci_correction_rules_load('spelling', TRUE);
+  }
   $page_size = 5;
   $total_rules = count($rules);
   if (!$total_rules) {
-    return array('#markup' => '<p>' . t('No published spelling rules were found.') . '</p>');
+    return array('#markup' => '<p>' . t('No published correction rules were found.') . '</p>');
   }
 
   $total_pages = (int) ceil($total_rules / $page_size);
@@ -33,7 +42,7 @@ function ci_correction_rules_review_page() {
 
   foreach ($page_rules as $rule) {
     $rule_rows[] = array(
-      l($rule['title'], 'correction-tools/rules/' . (int) $rule['nid'] . '/edit'),
+      l($rule['title'], 'node/' . (int) $rule['nid']),
       check_plain($rule['old']),
       check_plain($rule['new']),
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
@@ -353,7 +362,7 @@ function ci_correction_rules_audit_page() {
     $chant = node_load((int) $record->nid);
     $chant_link = $chant ? l($chant->title, 'node/' . $chant->nid) : t('Missing node @nid', array('@nid' => $record->nid));
     $rule = !empty($record->rule_nid) ? node_load((int) $record->rule_nid) : FALSE;
-    $rule_link = $rule ? l($rule->title, 'correction-tools/rules/' . $rule->nid . '/edit') : t('Unlinked legacy record');
+    $rule_link = $rule ? l($rule->title, 'node/' . (int) $rule->nid) : t('Unlinked legacy record');
     $account = !empty($record->applied_uid) ? user_load((int) $record->applied_uid) : FALSE;
     $rows[] = array(
       (int) $record->id,
@@ -512,4 +521,203 @@ function ci_correction_rules_backfill_rule_nids() {
     }
   }
   return $updated;
+}
+
+/**
+ * Adds applied and current suggested changes below a correction-rule node.
+ */
+function ci_correction_rules_node_view($node, $view_mode, $langcode) {
+  if ($node->type !== 'ci_correction_rule' || $view_mode !== 'full'
+    || !ci_correction_rules_manage_access()) {
+    return;
+  }
+
+  $node->content['ci_correction_rule_changes'] = ci_correction_rules_rule_changes_block($node);
+  $node->content['ci_correction_rule_changes']['#weight'] = 100;
+}
+
+/**
+ * Builds the applied and suggested change lists for one correction rule.
+ */
+function ci_correction_rules_rule_changes_block($node) {
+  $build = array(
+    '#type' => 'container',
+    '#attributes' => array('class' => array('ci-correction-rule-changes', 'block')),
+    '#weight' => 100,
+  );
+  $build['title'] = array(
+    '#markup' => '<h2>' . t('Changes for this correction rule') . '</h2>',
+  );
+
+  if (!db_table_exists('aa_corrections') || !db_field_exists('aa_corrections', 'rule_nid')) {
+    $build['unavailable'] = array(
+      '#markup' => '<p>' . t('Correction history is not available yet.') . '</p>',
+    );
+    return $build;
+  }
+
+  $rule = ci_correction_rules_get_rule($node);
+  $applied_total = (int) db_query(
+    'SELECT COUNT(*) FROM {aa_corrections} WHERE rule_nid = :rule_nid AND applied = 1',
+    array(':rule_nid' => (int) $node->nid)
+  )->fetchField();
+  $applied_query = db_select('aa_corrections', 'c')
+    ->fields('c', array('nid', 'misspelled_word', 'correct_word', 'applied_at', 'applied_uid'))
+    ->condition('c.rule_nid', (int) $node->nid)
+    ->condition('c.applied', 1)
+    ->orderBy('c.applied_at', 'DESC')
+    ->range(0, 50);
+  $applied_rows = array();
+  foreach ($applied_query->execute() as $record) {
+    $chant = node_load((int) $record->nid);
+    $chant_link = $chant
+      ? l($chant->title, 'node/' . (int) $chant->nid)
+      : t('Missing chant @nid', array('@nid' => (int) $record->nid));
+    $account = !empty($record->applied_uid) ? user_load((int) $record->applied_uid) : FALSE;
+    $applied_rows[] = array(
+      $chant_link,
+      check_plain($record->misspelled_word),
+      check_plain($record->correct_word),
+      !empty($record->applied_at) ? format_date((int) $record->applied_at, 'short') : '-',
+      $account ? check_plain($account->name) : '-',
+    );
+  }
+
+  $build['applied_title'] = array(
+    '#markup' => '<h3>' . t('Applied changes (@count)', array('@count' => $applied_total)) . '</h3>',
+  );
+  $build['applied_table'] = array(
+    '#theme' => 'table',
+    '#header' => array(t('Cantus chant'), t('Original'), t('Replacement'), t('Applied at'), t('Applied by')),
+    '#rows' => $applied_rows,
+    '#empty' => t('No changes have been applied for this rule.'),
+  );
+  if ($applied_total > 50) {
+    $build['applied_more'] = array(
+      '#markup' => '<p>' . t('Showing the latest 50 changes.') . ' '
+        . l(t('View correction history'), 'correction-tools/history')
+        . '</p>',
+    );
+  }
+  elseif ($applied_total) {
+    $build['applied_more'] = array(
+      '#markup' => '<p>'
+        . l(t('View correction history'), 'correction-tools/history')
+        . '</p>',
+    );
+  }
+
+  $suggestions = array();
+  $pending_count = (int) db_query(
+    'SELECT COUNT(*) FROM {aa_corrections} WHERE rule_nid = :rule_nid AND applied = 0',
+    array(':rule_nid' => (int) $node->nid)
+  )->fetchField();
+  $pending_query = db_select('aa_corrections', 'c')
+    ->fields('c', array('nid', 'misspelled_word', 'correct_word'))
+    ->condition('c.rule_nid', (int) $node->nid)
+    ->condition('c.applied', 0)
+    ->orderBy('c.id', 'DESC')
+    ->range(0, 50);
+  foreach ($pending_query->execute() as $record) {
+    $key = (int) $record->nid . "\0" . $record->misspelled_word . "\0" . $record->correct_word;
+    $suggestions[$key] = array(
+      'nid' => (int) $record->nid,
+      'old' => $record->misspelled_word,
+      'new' => $record->correct_word,
+      'count' => 0,
+      'legacy' => TRUE,
+    );
+  }
+
+  $candidate_rows = array();
+  if ($rule['old'] !== '' && db_table_exists('field_data_field_full_text')) {
+    $candidate_query = db_select('field_data_field_full_text', 'f')
+      ->fields('f', array('entity_id', 'field_full_text_value'))
+      ->condition('f.bundle', 'master_chant')
+      ->condition('f.deleted', 0)
+      ->condition('f.field_full_text_value', '%' . db_like($rule['old']) . '%', 'LIKE')
+      ->orderBy('f.entity_id', 'ASC')
+      ->range(0, 101);
+    $candidate_rows = $candidate_query->execute()->fetchAll();
+  }
+  $suggestions_truncated = count($candidate_rows) > 100 || $pending_count > 50;
+  foreach (array_slice($candidate_rows, 0, 100) as $candidate) {
+    foreach (ci_correction_rules_find_text_changes($candidate->field_full_text_value, $rule) as $change) {
+      $key = (int) $candidate->entity_id . "\0" . $change['old'] . "\0" . $change['new'];
+      if (!isset($suggestions[$key])) {
+        $suggestions[$key] = array(
+          'nid' => (int) $candidate->entity_id,
+          'old' => $change['old'],
+          'new' => $change['new'],
+          'count' => 0,
+          'legacy' => FALSE,
+        );
+      }
+      $suggestions[$key]['count'] += $change['count'];
+    }
+  }
+  ksort($suggestions, SORT_STRING);
+
+  $suggestion_rows = array();
+  foreach ($suggestions as $suggestion) {
+    $chant = node_load($suggestion['nid']);
+    $chant_link = $chant
+      ? l($chant->title, 'node/' . $suggestion['nid'])
+      : t('Missing chant @nid', array('@nid' => $suggestion['nid']));
+    $status = $suggestion['count']
+      ? ($suggestion['legacy'] ? t('Legacy suggestion and current match') : t('Current match'))
+      : t('Previously imported suggestion');
+    $suggestion_rows[] = array(
+      $chant_link,
+      check_plain($suggestion['old']),
+      check_plain($suggestion['new']),
+      $suggestion['count'] ? (int) $suggestion['count'] : '-',
+      $status,
+    );
+  }
+
+  $build['suggested_title'] = array(
+    '#markup' => '<h3>' . t('Suggested changes shown (@count)', array('@count' => count($suggestions))) . '</h3>',
+  );
+  $build['suggested_intro'] = array(
+    '#markup' => '<p>'
+      . l(t('Review and apply suggestions for this rule'), 'correction-tools/review', array('query' => array('rule_nid' => (int) $node->nid)))
+      . '</p>',
+  );
+  $build['suggested_table'] = array(
+    '#theme' => 'table',
+    '#header' => array(t('Cantus chant'), t('Current word'), t('Suggested word'), t('Matches'), t('Status')),
+    '#rows' => $suggestion_rows,
+    '#empty' => t('No current suggestions were found for this rule.'),
+  );
+  if ($suggestions_truncated) {
+    $build['suggested_more'] = array(
+      '#markup' => '<p>' . t('This list is limited to the first 100 matching chants and 50 pending legacy records. Use the review page to browse all current matches.') . '</p>',
+    );
+  }
+
+  return $build;
+}
+
+/**
+ * Finds the distinct word changes one rule would make in a chant text.
+ */
+function ci_correction_rules_find_text_changes($text, $rule) {
+  $changes = array();
+  $segments = preg_split('/\s+/u', (string) $text, -1, PREG_SPLIT_NO_EMPTY);
+  foreach ($segments as $segment) {
+    preg_match_all('/[\p{L}\p{M}]+/u', $segment, $matches);
+    foreach ($matches[0] as $old_word) {
+      $new_word = ci_correction_rules_apply($old_word, $rule);
+      if ($new_word === $old_word) {
+        continue;
+      }
+      $key = $old_word . "\0" . $new_word;
+      if (!isset($changes[$key])) {
+        $changes[$key] = array('old' => $old_word, 'new' => $new_word, 'count' => 0);
+      }
+      $changes[$key]['count']++;
+    }
+  }
+  return array_values($changes);
 }

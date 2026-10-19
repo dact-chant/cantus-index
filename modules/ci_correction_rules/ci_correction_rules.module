@@ -267,7 +267,7 @@ function ci_correction_rules_admin_page() {
       'prefix' => t('Prefix'),
     );
     $rows[] = array(
-      check_plain($node->title),
+      l($node->title, 'node/' . (int) $node->nid),
       isset($category_labels[$rule['category']]) ? $category_labels[$rule['category']] : '',
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
       $node->status ? t('Published') : t('Unpublished'),
