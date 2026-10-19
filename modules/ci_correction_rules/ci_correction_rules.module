@@ -5,6 +5,9 @@
  * Manages spelling and capitalization correction rules as content.
  */
 
+require_once __DIR__ . '/ci_correction_rules.network.inc';
+require_once __DIR__ . '/ci_correction_rules.review.inc';
+
 /**
  * Implements hook_permission().
  */
@@ -12,9 +15,31 @@ function ci_correction_rules_permission() {
   return array(
     'administer ci correction rules' => array(
       'title' => t('Administer CI correction rules'),
-      'description' => t('View and manage all spelling and capitalization correction rules.'),
+      'description' => t('Manage correction rules, review chant matches, apply changes, and view the correction history.'),
     ),
   );
+}
+
+/**
+ * Checks access to correction review and management pages.
+ */
+function ci_correction_rules_manage_access($account = NULL) {
+  global $user;
+  $account = $account ? $account : $user;
+
+  if (user_access('administer ci correction rules', $account) || user_access('administer nodes', $account)) {
+    return TRUE;
+  }
+
+  // Preserve access previously granted by the legacy my_corrections module.
+  $allowed_roles = array('debra', 'administrator', 'admin');
+  foreach (!empty($account->roles) ? $account->roles : array() as $role_name) {
+    if (in_array(strtolower(trim((string) $role_name)), $allowed_roles, TRUE)) {
+      return TRUE;
+    }
+  }
+
+  return FALSE;
 }
 
 /**
@@ -27,9 +52,66 @@ function ci_correction_rules_menu() {
     'title' => 'Correction rules',
     'description' => 'View and manage spelling and capitalization correction rules.',
     'page callback' => 'ci_correction_rules_admin_page',
-    'access arguments' => array('administer ci correction rules'),
+    'access callback' => 'ci_correction_rules_manage_access',
     'type' => MENU_LOCAL_TASK,
     'weight' => 20,
+  );
+
+  $items['admin/content/ci-correction-review'] = array(
+    'title' => 'Review correction matches',
+    'description' => 'Review and apply correction rules to Cantus Index chants.',
+    'page callback' => 'ci_correction_rules_review_page',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 21,
+  );
+
+  $items['admin/content/ci-correction-audit'] = array(
+    'title' => 'Correction history',
+    'description' => 'Review correction changes applied to Cantus Index chants.',
+    'page callback' => 'ci_correction_rules_audit_page',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 22,
+  );
+
+  // Preserve the concordance spelling tools provided by my_corrections.
+  $items['corrections'] = array(
+    'title' => 'Cantus corrections',
+    'page callback' => 'ci_correction_rules_review_page',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['corrections/network-scan'] = array(
+    'title' => 'Correction network scan',
+    'page callback' => 'ci_correction_rules_network_scan',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_CALLBACK,
+  );
+  $items['corrections/network-update'] = array(
+    'title' => 'Update correction network statistics',
+    'page callback' => 'ci_correction_rules_network_update_page',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_CALLBACK,
+  );
+  $items['corrections/network-update-run'] = array(
+    'title' => 'Update correction network statistics - run',
+    'page callback' => 'ci_correction_rules_network_update_run',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_CALLBACK,
+  );
+  $items['concordance-spelling'] = array(
+    'title' => 'Concordance spelling suggestions',
+    'page callback' => 'ci_correction_rules_network_page',
+    'access callback' => TRUE,
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['concordance-spelling/%/%'] = array(
+    'title' => 'Concordance spelling suggestion details',
+    'page callback' => 'ci_correction_rules_network_detail_page',
+    'page arguments' => array(1, 2),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
   );
 
   return $items;
@@ -41,7 +123,7 @@ function ci_correction_rules_menu() {
 function ci_correction_rules_node_access($node, $op, $account) {
   $is_rule = (is_string($node) && $node === 'ci_correction_rule')
     || (is_object($node) && isset($node->type) && $node->type === 'ci_correction_rule');
-  if ($is_rule && user_access('administer ci correction rules', $account)
+  if ($is_rule && ci_correction_rules_manage_access($account)
     && in_array($op, array('create', 'view', 'update', 'delete'), TRUE)) {
     return NODE_ACCESS_ALLOW;
   }
