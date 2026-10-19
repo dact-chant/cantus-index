@@ -154,13 +154,13 @@ function ci_correction_rules_menu() {
   );
 
   $items['correction-tools/concordance'] = array(
-    'title' => 'Concordance spelling',
+    'title' => 'CI Network Correction Suggestions',
     'page callback' => 'ci_correction_rules_network_page',
     'access callback' => 'ci_correction_rules_manage_access',
     'type' => MENU_CALLBACK,
   );
   $items['correction-tools/concordance/%/%'] = array(
-    'title' => 'Concordance spelling details',
+    'title' => 'CI Network Correction Suggestion Details',
     'page callback' => 'ci_correction_rules_network_detail_page',
     'page arguments' => array(2, 3),
     'access callback' => 'ci_correction_rules_manage_access',
@@ -200,8 +200,7 @@ function ci_correction_rules_page_alter(&$page) {
     l(t('Rules'), 'correction-tools/rules'),
     l(t('Review corrections'), 'correction-tools/review'),
     l(t('Correction history'), 'correction-tools/history'),
-    l(t('Concordance spelling'), 'correction-tools/concordance'),
-    l(t('Network scan'), 'correction-tools/network-scan'),
+    l(t('CI Network Correction Suggestions'), 'correction-tools/concordance'),
     l(t('Update network statistics'), 'correction-tools/network-update'),
   );
 
@@ -263,8 +262,7 @@ function ci_correction_rules_landing_page() {
     l(t('Correction rules'), 'correction-tools/rules'),
     l(t('Review and apply corrections'), 'correction-tools/review'),
     l(t('Correction history'), 'correction-tools/history'),
-    l(t('Concordance spelling'), 'correction-tools/concordance'),
-    l(t('Correction network scan'), 'correction-tools/network-scan'),
+    l(t('CI Network Correction Suggestions'), 'correction-tools/concordance'),
     l(t('Update correction network statistics'), 'correction-tools/network-update'),
   );
 
