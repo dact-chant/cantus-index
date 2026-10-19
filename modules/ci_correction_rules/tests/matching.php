@@ -78,13 +78,15 @@ foreach ($replacement_cases as $index => $case) {
 echo count($replacement_cases) . ' text replacement regression checks passed.' . PHP_EOL;
 
 $debra_account = (object) array('roles' => array(3 => 'debra'));
-$admin_account = (object) array('roles' => array(2 => 'administrator'));
+$admin_account = (object) array('roles' => array(2 => 'admin'));
+$administrator_account = (object) array('roles' => array(4 => 'administrator'));
 $anonymous_account = (object) array('roles' => array(1 => 'anonymous user'));
 if (!ci_correction_rules_manage_access($debra_account)
-  || ci_correction_rules_manage_access($admin_account)
+  || !ci_correction_rules_manage_access($admin_account)
+  || !ci_correction_rules_manage_access($administrator_account)
   || ci_correction_rules_manage_access($anonymous_account)) {
   fwrite(STDERR, 'Role access checks failed.' . PHP_EOL);
   exit(1);
 }
 
-echo '3 correction-tool role access checks passed.' . PHP_EOL;
+echo '4 correction-tool role access checks passed.' . PHP_EOL;

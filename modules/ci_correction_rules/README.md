@@ -12,7 +12,7 @@ site menu. Its pages use the Cantus Index theme and unique paths under
 `/correction-tools`: `/rules`, `/review`, `/history`, `/concordance`,
 `/network-scan`, and `/network-update`. Rule add, edit, and delete forms also
 use paths under `/correction-tools/rules`. Access is restricted to accounts
-with the **debra** role.
+with the **debra**, **admin**, or **administrator** role.
 
 The module exposes `ci_correction_rules_load()` to retrieve published rules
 and `ci_correction_rules_apply($word, $rule)` to apply one rule to one word.

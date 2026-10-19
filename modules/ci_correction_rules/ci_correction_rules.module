@@ -15,8 +15,9 @@ function ci_correction_rules_manage_access($account = NULL) {
   global $user;
   $account = $account ? $account : $user;
 
+  $allowed_roles = array('debra', 'admin', 'administrator');
   foreach (!empty($account->roles) ? $account->roles : array() as $role_name) {
-    if (strtolower(trim((string) $role_name)) === 'debra') {
+    if (in_array(strtolower(trim((string) $role_name)), $allowed_roles, TRUE)) {
       return TRUE;
     }
   }
