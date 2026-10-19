@@ -379,13 +379,95 @@ function ci_correction_rules_audit_page() {
 
   ci_correction_rules_cleanup_pending_records();
   $pending = (int) db_query('SELECT COUNT(*) FROM {aa_corrections} WHERE applied = 0')->fetchField();
+  $word = isset($_GET['word']) ? trim((string) $_GET['word']) : '';
+  $chant_id = isset($_GET['chant_id']) ? trim((string) $_GET['chant_id']) : '';
+  $page = isset($_GET['page']) ? max(0, (int) $_GET['page']) : 0;
+
+  $build['filters'] = backdrop_get_form('ci_correction_rules_audit_filter_form', $word, $chant_id);
+  $build['results'] = ci_correction_rules_audit_results($word, $chant_id, $page);
+  if ($pending) {
+    $build['legacy_apply'] = backdrop_get_form('ci_correction_rules_apply_legacy_pending_form', $pending);
+  }
+  return $build;
+}
+
+/**
+ * Builds the correction-history filters.
+ */
+function ci_correction_rules_audit_filter_form($form, &$form_state, $word = '', $chant_id = '') {
+  $form['#attributes']['class'][] = 'ci-correction-history-filters';
+  $form['word'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Original or corrected word'),
+    '#default_value' => $word,
+    '#ajax' => array(
+      'callback' => 'ci_correction_rules_audit_filter_ajax',
+      'wrapper' => 'ci-correction-history-results',
+      'method' => 'replace',
+      'event' => 'change',
+    ),
+  );
+  $form['chant_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Cantus ID contains'),
+    '#default_value' => $chant_id,
+    '#ajax' => array(
+      'callback' => 'ci_correction_rules_audit_filter_ajax',
+      'wrapper' => 'ci-correction-history-results',
+      'method' => 'replace',
+      'event' => 'change',
+    ),
+  );
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['search'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+    '#ajax' => array(
+      'callback' => 'ci_correction_rules_audit_filter_ajax',
+      'wrapper' => 'ci-correction-history-results',
+      'method' => 'replace',
+    ),
+  );
+  $form['actions']['clear'] = array(
+    '#markup' => ' ' . l(t('Clear filters'), 'correction-tools/history'),
+  );
+  return $form;
+}
+
+/**
+ * Returns filtered history results for an AJAX filter request.
+ */
+function ci_correction_rules_audit_filter_ajax($form, &$form_state) {
+  $values = isset($form_state['values']) ? $form_state['values'] : array();
+  $word = isset($values['word']) ? trim((string) $values['word']) : '';
+  $chant_id = isset($values['chant_id']) ? trim((string) $values['chant_id']) : '';
+  return ci_correction_rules_audit_results($word, $chant_id, 0);
+}
+
+/**
+ * Builds the filtered history table and links that preserve active filters.
+ */
+function ci_correction_rules_audit_results($word, $chant_id, $page = 0) {
+  $page_size = 50;
+  $count_query = db_select('aa_corrections', 'c');
+  $count_query->leftJoin('node', 'n', 'n.nid = c.nid');
+  $count_query->addExpression('COUNT(*)');
+  ci_correction_rules_audit_apply_filters($count_query, $word, $chant_id);
+  $total = (int) $count_query->execute()->fetchField();
+  $total_pages = (int) ceil($total / $page_size);
+  $page = $total_pages ? min(max(0, (int) $page), $total_pages - 1) : 0;
+
   $query = db_select('aa_corrections', 'c')
-    ->fields('c', array('id', 'nid', 'rule_nid', 'misspelled_word', 'correct_word', 'applied', 'applied_at', 'applied_uid'))
+    ->fields('c', array('id', 'nid', 'rule_nid', 'misspelled_word', 'correct_word', 'applied', 'applied_at', 'applied_uid'));
+  $query->leftJoin('node', 'n', 'n.nid = c.nid');
+  ci_correction_rules_audit_apply_filters($query, $word, $chant_id);
+  $records = $query
     ->orderBy('c.id', 'DESC')
-    ->extend('PagerDefault')
-    ->limit(50);
+    ->range($page * $page_size, $page_size)
+    ->execute();
+
   $rows = array();
-  foreach ($query->execute() as $record) {
+  foreach ($records as $record) {
     $chant = node_load((int) $record->nid);
     $chant_link = $chant ? l($chant->title, 'node/' . $chant->nid) : t('Missing node @nid', array('@nid' => $record->nid));
     $rule = !empty($record->rule_nid) ? node_load((int) $record->rule_nid) : FALSE;
@@ -403,18 +485,69 @@ function ci_correction_rules_audit_page() {
     );
   }
 
-  $build['intro'] = array('#markup' => '<p>' . t('Applied correction history is stored in aa_corrections. @pending previously imported records are still pending and have not been changed.', array('@pending' => $pending)) . '</p>');
+  $build = array(
+    '#type' => 'container',
+    '#attributes' => array('id' => 'ci-correction-history-results'),
+  );
+  $shown_start = $total ? $page * $page_size + 1 : 0;
+  $shown_end = min(($page + 1) * $page_size, $total);
+  $build['count'] = array(
+    '#markup' => '<p>' . t('Showing @start–@end of @total records.', array(
+      '@start' => $shown_start,
+      '@end' => $shown_end,
+      '@total' => $total,
+    )) . '</p>',
+  );
   $build['table'] = array(
     '#theme' => 'table',
     '#header' => array(t('ID'), t('Cantus chant'), t('Correction rule'), t('Original word'), t('Corrected word'), t('Status'), t('Applied at'), t('Applied by')),
     '#rows' => $rows,
-    '#empty' => t('No correction changes have been recorded.'),
+    '#empty' => ($word !== '' || $chant_id !== '')
+      ? t('No correction history records match these filters.')
+      : t('No correction changes have been recorded.'),
   );
-  $build['pager'] = array('#theme' => 'pager');
-  if ($pending) {
-    $build['legacy_apply'] = backdrop_get_form('ci_correction_rules_apply_legacy_pending_form', $pending);
+  if ($total_pages > 1) {
+    $query_args = array();
+    if ($word !== '') {
+      $query_args['word'] = $word;
+    }
+    if ($chant_id !== '') {
+      $query_args['chant_id'] = $chant_id;
+    }
+    $navigation = array();
+    if ($page > 0) {
+      $previous_query = $query_args;
+      $previous_query['page'] = $page - 1;
+      $navigation[] = l(t('Previous'), 'correction-tools/history', array('query' => $previous_query));
+    }
+    $navigation[] = t('Page @current of @total', array('@current' => $page + 1, '@total' => $total_pages));
+    if ($page + 1 < $total_pages) {
+      $next_query = $query_args;
+      $next_query['page'] = $page + 1;
+      $navigation[] = l(t('Next'), 'correction-tools/history', array('query' => $next_query));
+    }
+    $build['pager'] = array('#markup' => '<p class="ci-correction-history-pager">' . implode(' | ', $navigation) . '</p>');
   }
   return $build;
+}
+
+/**
+ * Adds word and Cantus ID filters to a correction history query.
+ */
+function ci_correction_rules_audit_apply_filters($query, $word, $chant_id) {
+  $word = trim((string) $word);
+  if ($word !== '') {
+    $word_like = '%' . db_like($word) . '%';
+    $word_condition = db_or()
+      ->condition('c.misspelled_word', $word_like, 'LIKE')
+      ->condition('c.correct_word', $word_like, 'LIKE');
+    $query->condition($word_condition);
+  }
+
+  $chant_id = trim((string) $chant_id);
+  if ($chant_id !== '') {
+    $query->condition('n.title', '%' . db_like($chant_id) . '%', 'LIKE');
+  }
 }
 
 /**
