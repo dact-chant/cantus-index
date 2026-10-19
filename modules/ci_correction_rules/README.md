@@ -14,6 +14,11 @@ site menu. Its pages use the Cantus Index theme and unique paths under
 use paths under `/correction-tools/rules`. Access is restricted to accounts
 with the **debra**, **admin**, or **administrator** role.
 
+Each correction-rule node links to its normal view page. Beneath the rule,
+authorized users see applied changes from `aa_corrections` and current
+suggestions computed from matching Cantus Index chant full texts. Suggestions
+are not stored as new audit rows until they are applied.
+
 The module exposes `ci_correction_rules_load()` to retrieve published rules
 and `ci_correction_rules_apply($word, $rule)` to apply one rule to one word.
 Whole-word, part-of-word, and prefix matching are literal and
