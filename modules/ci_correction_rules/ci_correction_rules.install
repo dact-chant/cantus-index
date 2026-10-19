@@ -10,11 +10,131 @@
  */
 function ci_correction_rules_install() {
   ci_correction_rules_install_content_type();
+  ci_correction_rules_ensure_audit_table();
   $result = ci_correction_rules_import_legacy_rules();
+  ci_correction_rules_backfill_rule_nids();
   watchdog('ci_correction_rules', 'Imported @created legacy correction rules; skipped @skipped duplicates.', array(
     '@created' => $result['created'],
     '@skipped' => $result['skipped'],
   ), WATCHDOG_NOTICE);
+}
+
+/**
+ * Adds the correction audit schema and rule references to existing installs.
+ */
+function ci_correction_rules_update_1000() {
+  ci_correction_rules_ensure_audit_table();
+  $updated = ci_correction_rules_backfill_rule_nids();
+
+  return t('Prepared the correction audit log and linked @count legacy records to correction rules.', array(
+    '@count' => $updated,
+  ));
+}
+
+/**
+ * Returns the schema used for the durable correction audit log.
+ */
+function ci_correction_rules_audit_schema() {
+  return array(
+    'description' => 'Records spelling corrections applied to Cantus Index chants.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Local correction audit ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'Cantus Index chant node ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'rule_nid' => array(
+        'description' => 'Correction rule node ID, when known.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => FALSE,
+      ),
+      'misspelled_word' => array(
+        'description' => 'Original word changed in the chant.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'correct_word' => array(
+        'description' => 'Replacement word written to the chant.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'applied' => array(
+        'description' => 'Whether the correction has been applied.',
+        'type' => 'int',
+        'size' => 'tiny',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'applied_at' => array(
+        'description' => 'Unix timestamp when the correction was applied.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'applied_uid' => array(
+        'description' => 'User ID that applied the correction.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'nid' => array('nid'),
+      'rule_nid' => array('rule_nid'),
+      'applied' => array('applied'),
+    ),
+  );
+}
+
+/**
+ * Creates the audit table or adds fields needed by direct correction review.
+ */
+function ci_correction_rules_ensure_audit_table() {
+  $schema = ci_correction_rules_audit_schema();
+  if (!db_table_exists('aa_corrections')) {
+    db_create_table('aa_corrections', $schema);
+    return;
+  }
+
+  foreach (array('rule_nid', 'applied', 'applied_at', 'applied_uid') as $field_name) {
+    if (!db_field_exists('aa_corrections', $field_name)) {
+      db_add_field('aa_corrections', $field_name, $schema['fields'][$field_name]);
+    }
+  }
+
+  $id_column = db_query("SHOW COLUMNS FROM {aa_corrections} LIKE 'id'")->fetchObject();
+  if ($id_column && stripos($id_column->Extra, 'auto_increment') === FALSE) {
+    db_drop_primary_key('aa_corrections');
+    db_change_field(
+      'aa_corrections',
+      'id',
+      'id',
+      $schema['fields']['id'],
+      array('primary key' => array('id'))
+    );
+  }
+
+  foreach (array('nid', 'rule_nid', 'applied') as $index) {
+    if (!db_index_exists('aa_corrections', $index)) {
+      db_add_index('aa_corrections', $index, array($index));
+    }
+  }
 }
 
 /**

@@ -55,3 +55,24 @@ foreach ($cases as $index => $case) {
 }
 
 echo count($cases) . ' matching regression checks passed.' . PHP_EOL;
+
+$replacement_cases = array(
+  array('eius, Eius; EIUS.', 'eius', 'ejus', 'ejus, Eius; EIUS.', 1),
+  array('eiusdem Pompeius', 'eius', 'ejus', 'eiusdem Pompeius', 0),
+  array('āmen (āmen)', 'āmen', 'Āmen', 'Āmen (Āmen)', 2),
+  array('eius/eiusque', 'eius', 'ejus', 'ejus/eiusque', 1),
+  array('eius', 'eius', '$1', '$1', 1),
+);
+
+foreach ($replacement_cases as $index => $case) {
+  $replacement_count = 0;
+  $actual = ci_correction_rules_replace_word($case[0], $case[1], $case[2], $replacement_count);
+  if ($actual !== $case[3] || $replacement_count !== $case[4]) {
+    fwrite(STDERR, 'Replacement case ' . ($index + 1) . ': expected '
+      . var_export($case[3], TRUE) . ' (' . $case[4] . ' replacements), got '
+      . var_export($actual, TRUE) . ' (' . $replacement_count . ' replacements).' . PHP_EOL);
+    exit(1);
+  }
+}
+
+echo count($replacement_cases) . ' text replacement regression checks passed.' . PHP_EOL;
