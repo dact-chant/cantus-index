@@ -1,0 +1,229 @@
+<?php
+
+/**
+ * @file
+ * Manages spelling and capitalization correction rules as content.
+ */
+
+/**
+ * Implements hook_permission().
+ */
+function ci_correction_rules_permission() {
+  return array(
+    'administer ci correction rules' => array(
+      'title' => t('Administer CI correction rules'),
+      'description' => t('View and manage all spelling and capitalization correction rules.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function ci_correction_rules_menu() {
+  $items = array();
+
+  $items['admin/content/ci-correction-rules'] = array(
+    'title' => 'Correction rules',
+    'description' => 'View and manage spelling and capitalization correction rules.',
+    'page callback' => 'ci_correction_rules_admin_page',
+    'access arguments' => array('administer ci correction rules'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_node_access().
+ */
+function ci_correction_rules_node_access($node, $op, $account) {
+  $is_rule = (is_string($node) && $node === 'ci_correction_rule')
+    || (is_object($node) && isset($node->type) && $node->type === 'ci_correction_rule');
+  if ($is_rule && user_access('administer ci correction rules', $account)
+    && in_array($op, array('create', 'view', 'update', 'delete'), TRUE)) {
+    return NODE_ACCESS_ALLOW;
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function ci_correction_rules_node_presave($node) {
+  if ($node->type !== 'ci_correction_rule') {
+    return;
+  }
+
+  $find_items = field_get_items('node', $node, 'field_ci_rule_find');
+  $replace_items = field_get_items('node', $node, 'field_ci_rule_replace');
+  $find = $find_items ? $find_items[0]['value'] : '';
+  $replace = $replace_items ? $replace_items[0]['value'] : '';
+
+  $node->title = truncate_utf8($find . ' → ' . $replace, 255, FALSE, TRUE);
+}
+
+/**
+ * Lists correction rules for the administration page.
+ */
+function ci_correction_rules_admin_page() {
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'ci_correction_rule')
+    ->orderBy('n.nid', 'DESC')
+    ->extend('PagerDefault')
+    ->limit(50);
+  $nids = $query->execute()->fetchCol();
+  $nodes = $nids ? node_load_multiple($nids) : array();
+  $rows = array();
+
+  foreach ($nodes as $node) {
+    $rule = ci_correction_rules_get_rule($node);
+    $operations = array();
+    if (node_access('update', $node)) {
+      $operations[] = l(t('Edit'), 'node/' . $node->nid . '/edit');
+    }
+    if (node_access('delete', $node)) {
+      $operations[] = l(t('Delete'), 'node/' . $node->nid . '/delete');
+    }
+    $category_labels = array(
+      'spelling' => t('Spelling'),
+      'capitalization' => t('Capitalization'),
+    );
+    $match_labels = array(
+      'whole_word' => t('Whole word'),
+      'part_of_word' => t('Part of word'),
+      'prefix' => t('Prefix'),
+    );
+    $rows[] = array(
+      check_plain($node->title),
+      isset($category_labels[$rule['category']]) ? $category_labels[$rule['category']] : '',
+      isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
+      $node->status ? t('Published') : t('Unpublished'),
+      implode(' | ', $operations),
+    );
+  }
+
+  $build['add'] = array(
+    '#markup' => '<p>' . l(t('Add a correction rule'), 'node/add/ci-correction-rule') . '</p>',
+  );
+  $build['rules'] = array(
+    '#theme' => 'table',
+    '#header' => array(
+      t('Find → Replace with'),
+      t('Category'),
+      t('Match type'),
+      t('Status'),
+      t('Operations'),
+    ),
+    '#rows' => $rows,
+    '#empty' => t('No correction rules have been created.'),
+  );
+  $build['pager'] = array('#theme' => 'pager');
+  return $build;
+}
+
+/**
+ * Returns the matching fields of a correction rule node.
+ */
+function ci_correction_rules_get_rule($node) {
+  $rule = array('nid' => $node->nid, 'title' => $node->title);
+  $fields = array(
+    'category' => 'field_ci_rule_category',
+    'old' => 'field_ci_rule_find',
+    'new' => 'field_ci_rule_replace',
+    'match_type' => 'field_ci_rule_match_type',
+    'exceptions' => 'field_ci_rule_exceptions',
+  );
+  foreach ($fields as $key => $field_name) {
+    $items = field_get_items('node', $node, $field_name);
+    $rule[$key] = $items ? $items[0]['value'] : '';
+  }
+  return $rule;
+}
+
+/**
+ * Loads correction rule nodes, ordered by node ID.
+ *
+ * This function intentionally includes published rules regardless of the
+ * current user's node-view permissions so correction workflows can apply the
+ * same approved rules consistently. Callers must apply any needed access
+ * checks before displaying rule content.
+ */
+function ci_correction_rules_load($category = NULL, $published_only = TRUE) {
+  $query = new EntityFieldQuery();
+  $query
+    ->entityCondition('entity_type', 'node')
+    ->entityCondition('bundle', 'ci_correction_rule')
+    ->addTag('DANGEROUS_ACCESS_CHECK_OPT_OUT')
+    ->propertyOrderBy('nid', 'ASC');
+
+  if ($published_only) {
+    $query->propertyCondition('status', NODE_PUBLISHED);
+  }
+  if ($category !== NULL) {
+    $query->fieldCondition('field_ci_rule_category', 'value', $category);
+  }
+
+  $result = $query->execute();
+  $nids = !empty($result['node']) ? array_keys($result['node']) : array();
+  $nodes = $nids ? node_load_multiple($nids) : array();
+  $rules = array();
+  foreach ($nodes as $node) {
+    $rules[] = ci_correction_rules_get_rule($node);
+  }
+  return $rules;
+}
+
+/**
+ * Applies one literal correction rule to one word.
+ */
+function ci_correction_rules_apply($word, $rule) {
+  if (empty($rule['old']) || !isset($rule['match_type'])) {
+    return $word;
+  }
+
+  $exceptions = isset($rule['exceptions']) ? $rule['exceptions'] : '';
+  foreach (preg_split('/\r\n|\r|\n/', $exceptions) as $exception) {
+    $exception = trim($exception);
+    if ($exception !== '' && mb_stripos($word, $exception, 0, 'UTF-8') !== FALSE) {
+      return $word;
+    }
+  }
+
+  $find = preg_quote($rule['old'], '/');
+  switch ($rule['match_type']) {
+    case 'whole_word':
+      $pattern = '/^' . $find . '$/iu';
+      break;
+    case 'prefix':
+      $pattern = '/^' . $find . '/iu';
+      break;
+    case 'part_of_word':
+      $pattern = '/' . $find . '/iu';
+      break;
+    default:
+      return $word;
+  }
+
+  $replacement = isset($rule['new']) ? $rule['new'] : '';
+  $new_word = preg_replace_callback($pattern, function ($matches) use ($replacement) {
+    return $replacement;
+  }, $word);
+
+  if ($new_word === NULL || $new_word === $word) {
+    return $word;
+  }
+
+  if (isset($rule['category']) && $rule['category'] === 'spelling') {
+    if ($word === mb_strtoupper($word, 'UTF-8') && $word !== mb_strtolower($word, 'UTF-8')) {
+      $new_word = mb_strtoupper($new_word, 'UTF-8');
+    }
+    elseif (mb_substr($word, 0, 1, 'UTF-8') === mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8')) {
+      $new_word = mb_strtoupper(mb_substr($new_word, 0, 1, 'UTF-8'), 'UTF-8')
+        . mb_substr($new_word, 1, NULL, 'UTF-8');
+    }
+  }
+
+  return $new_word;
+}
