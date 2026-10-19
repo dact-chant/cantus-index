@@ -9,10 +9,16 @@ Enable the module at `admin/modules`. Installation creates the content type and
 its fields, then imports the spelling rules captured from Latinchant's existing
 correction behavior. The module adds a **Correction tools** link to the regular
 site menu. Its pages use the Cantus Index theme and unique paths under
-`/correction-tools`: `/rules`, `/review`, `/history`, `/concordance`,
-`/network-scan`, and `/network-update`. Rule add, edit, and delete forms also
+`/corrections` (overview) and `/correction-tools`: `/rules`, `/review`,
+`/history`, `/concordance`, `/network-scan`, and `/network-update`. Rule add,
+edit, and delete forms also
 use paths under `/correction-tools/rules`. Access is restricted to accounts
 with the **debra**, **admin**, or **administrator** role.
+
+The `/corrections` overview reports the total number of correction rules, how
+many rules have applied changes, and how many Master Chants have been changed.
+It links to each correction workflow. The former `/concordance-spelling` path
+redirects to `/correction-tools/concordance`.
 
 Each correction-rule node links to its normal view page. Beneath the rule,
 authorized users see applied changes from `aa_corrections` and current
