@@ -50,12 +50,20 @@ function ci_correction_rules_menu_alter(&$items) {
   }
 
   if (isset($items['corrections'])) {
-    $items['corrections']['title'] = 'Correction history';
-    $items['corrections']['page callback'] = 'ci_correction_rules_legacy_route_redirect';
-    $items['corrections']['type'] = MENU_CALLBACK;
+    $items['corrections']['title'] = 'Cantus corrections';
+    $items['corrections']['description'] = 'Overview of correction rules, review, history, and concordance tools.';
+    $items['corrections']['page callback'] = 'ci_correction_rules_landing_page';
+    $items['corrections']['type'] = MENU_NORMAL_ITEM;
+    $items['corrections']['menu_name'] = 'main-menu';
   }
   if (isset($items['corrections/import'])) {
     $items['corrections/import']['page callback'] = 'ci_correction_rules_legacy_route_redirect';
+  }
+  foreach (array('concordance-spelling', 'concordance-spelling/%/%') as $path) {
+    if (isset($items[$path])) {
+      $items[$path]['page callback'] = 'ci_correction_rules_legacy_route_redirect';
+      $items[$path]['type'] = MENU_CALLBACK;
+    }
   }
 }
 
@@ -63,9 +71,19 @@ function ci_correction_rules_menu_alter(&$items) {
  * Redirects an obsolete correction route to its current replacement.
  */
 function ci_correction_rules_legacy_route_redirect() {
-  $destination = current_path() === 'corrections/import'
-    ? 'correction-tools/review'
-    : 'correction-tools/history';
+  $path = current_path();
+  if ($path === 'corrections/import') {
+    $destination = 'correction-tools/review';
+  }
+  elseif ($path === 'concordance-spelling') {
+    $destination = 'correction-tools/concordance';
+  }
+  elseif (strpos($path, 'concordance-spelling/') === 0 && arg(1) !== FALSE && arg(2) !== FALSE) {
+    $destination = 'correction-tools/concordance/' . arg(1) . '/' . arg(2);
+  }
+  else {
+    $destination = 'correction-tools/history';
+  }
   backdrop_goto($destination);
 }
 
@@ -76,12 +94,11 @@ function ci_correction_rules_menu() {
   $items = array();
 
   $items['correction-tools'] = array(
-    'title' => 'Correction tools',
+    'title' => 'Cantus corrections',
     'description' => 'Review correction rules, apply chant corrections, and view concordance statistics.',
-    'page callback' => 'ci_correction_rules_tools_page',
+    'page callback' => 'ci_correction_rules_landing_page',
     'access callback' => 'ci_correction_rules_manage_access',
-    'type' => MENU_NORMAL_ITEM,
-    'menu_name' => 'main-menu',
+    'type' => MENU_CALLBACK,
   );
 
   $items['correction-tools/rules'] = array(
@@ -179,7 +196,7 @@ function ci_correction_rules_page_alter(&$page) {
   }
 
   $links = array(
-    l(t('Overview'), 'correction-tools'),
+    l(t('Overview'), 'corrections'),
     l(t('Rules'), 'correction-tools/rules'),
     l(t('Review corrections'), 'correction-tools/review'),
     l(t('Correction history'), 'correction-tools/history'),
@@ -219,23 +236,53 @@ function ci_correction_rules_node_operation_access($op, $node) {
 }
 
 /**
- * Landing page listing all correction tools.
+ * Landing page listing correction totals and all correction tools.
  */
-function ci_correction_rules_tools_page() {
+function ci_correction_rules_landing_page() {
+  $rule_total = (int) db_query(
+    "SELECT COUNT(*) FROM {node} WHERE type = :type",
+    array(':type' => 'ci_correction_rule')
+  )->fetchField();
+  $applied_rule_total = 0;
+  $changed_chant_total = 0;
+
+  if (db_table_exists('aa_corrections') && db_field_exists('aa_corrections', 'rule_nid') && db_field_exists('aa_corrections', 'applied')) {
+    $applied_rule_total = (int) db_query(
+      "SELECT COUNT(DISTINCT c.rule_nid)\n       FROM {aa_corrections} c\n       INNER JOIN {node} r ON r.nid = c.rule_nid\n       WHERE c.applied = 1 AND r.type = :type",
+      array(':type' => 'ci_correction_rule')
+    )->fetchField();
+  }
+  if (db_table_exists('aa_corrections') && db_field_exists('aa_corrections', 'applied')) {
+    $changed_chant_total = (int) db_query(
+      "SELECT COUNT(DISTINCT c.nid)\n       FROM {aa_corrections} c\n       INNER JOIN {node} n ON n.nid = c.nid\n       WHERE c.applied = 1 AND n.type = :type",
+      array(':type' => 'master_chant')
+    )->fetchField();
+  }
+
   $links = array(
     l(t('Correction rules'), 'correction-tools/rules'),
-    l(t('Review correction matches'), 'correction-tools/review'),
+    l(t('Review and apply corrections'), 'correction-tools/review'),
     l(t('Correction history'), 'correction-tools/history'),
     l(t('Concordance spelling'), 'correction-tools/concordance'),
     l(t('Correction network scan'), 'correction-tools/network-scan'),
     l(t('Update correction network statistics'), 'correction-tools/network-update'),
   );
 
-  return array(
+  $build['intro'] = array(
+    '#markup' => '<p>' . t('Manage spelling corrections for Cantus Index chants and review related concordance data.') . '</p>',
+  );
+  $build['statistics'] = array(
+    '#theme' => 'table',
+    '#header' => array(t('All rules'), t('Rules applied'), t('Master Chants changed')),
+    '#rows' => array(array($rule_total, $applied_rule_total, $changed_chant_total)),
+    '#attributes' => array('class' => array('cantus-corrections-overview')),
+  );
+  $build['tools'] = array(
     '#theme' => 'item_list',
     '#title' => t('Correction tools'),
     '#items' => $links,
   );
+  return $build;
 }
 
 /**
