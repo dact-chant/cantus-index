@@ -10,7 +10,10 @@ its fields, then imports the spelling rules captured from Latinchant's existing
 correction behavior. The module adds a **Correction tools** link to the regular
 site menu. Its pages use the Cantus Index theme and unique paths under
 `/corrections` (overview) and `/correction-tools`: `/rules`, `/review`,
-`/history`, `/concordance`, `/network-scan`, and `/network-update`. Rule add,
+`/history`, `/concordance`, `/network-scan`, and `/network-update`. The
+concordance overview is labeled **CI Network Correction Suggestions**.
+The one-rule `/network-scan` remains available by direct URL but is omitted
+from the navigation. Rule add,
 edit, and delete forms also
 use paths under `/correction-tools/rules`. Access is restricted to accounts
 with the **debra**, **admin**, or **administrator** role.
