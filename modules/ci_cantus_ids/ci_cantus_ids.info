@@ -1,0 +1,6 @@
+name = CI Cantus IDs
+description = Generates Cantus IDs for master chants, including variants of longer Similar chant IDs.
+backdrop = 1.x
+type = module
+package = Cantus Index
+dependencies[] = node
