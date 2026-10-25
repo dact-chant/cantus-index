@@ -74,6 +74,15 @@ function ci_cantus_ids_master_chant_validate($form, &$form_state) {
 }
 
 /**
+ * Keeps already-built forms using the former validator name working.
+ */
+if (!function_exists('my_cantusids_master_chant_validate')) {
+  function my_cantusids_master_chant_validate($form, &$form_state) {
+    ci_cantus_ids_master_chant_validate($form, $form_state);
+  }
+}
+
+/**
  * Alter suggestion form after build.
  */
 function ci_cantus_ids_afterbuild_form_suggestion(&$form) {
