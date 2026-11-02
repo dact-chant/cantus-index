@@ -1,0 +1,6 @@
+name = CI Paired References
+description = Provides paired editing and display for chant references such as AH and CT.
+backdrop = 1.x
+type = module
+package = Cantus Index
+dependencies[] = node
