@@ -1,0 +1,421 @@
+<?php
+
+/**
+ * @file
+ * Paired editing and display of chant references.
+ *
+ * The module works with existing fields. It does not create fields or change
+ * database structure. Each reference group is defined in
+ * ci_paired_references_definitions().
+ */
+
+/**
+ * Defines the paired references managed by this module.
+ *
+ * Add future reference types here, with their existing field machine names.
+ */
+function ci_paired_references_definitions() {
+  return array(
+    'ah' => array(
+      'title' => t('Analecta Hymnica'),
+      'short_label' => 'AH',
+      'left_field' => 'field_ah_volume',
+      'right_field' => 'field_ah_item',
+      'left_label' => t('AH volume'),
+      'right_label' => t('AH item number'),
+      'right_abbreviation' => t('no.'),
+    ),
+    'ct' => array(
+      'title' => t('Corpus Troporum'),
+      'short_label' => 'CT',
+      'left_field' => 'field_ct_volume',
+      'right_field' => 'field_ct_page_number',
+      'left_label' => t('CT volume'),
+      'right_label' => t('CT page number'),
+      'right_abbreviation' => t('p.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function ci_paired_references_form_master_chant_node_form_alter(&$form, &$form_state) {
+  $active = array();
+  $weights = array();
+
+  foreach (ci_paired_references_definitions() as $key => $definition) {
+    if (!isset($form[$definition['left_field']]) || !isset($form[$definition['right_field']])) {
+      continue;
+    }
+
+    $active[$key] = $definition;
+    foreach (array('left_field', 'right_field') as $side) {
+      $field_name = $definition[$side];
+      if (isset($form[$field_name]['#weight'])) {
+        $weights[] = $form[$field_name]['#weight'];
+      }
+      $form[$field_name]['#access'] = FALSE;
+      $form_state['ci_paired_references_languages'][$field_name] =
+        ci_paired_references_get_field_language($form, $field_name);
+    }
+  }
+
+  if (empty($active)) {
+    return;
+  }
+
+  $weight = empty($weights) ? 0 : min($weights);
+  $form['#attached']['css'][] = backdrop_get_path('module', 'ci_paired_references') . '/ci_paired_references.css';
+  $form['ci_paired_references'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('References'),
+    '#tree' => TRUE,
+    '#weight' => $weight,
+    '#attributes' => array('class' => array('ci-paired-references')),
+  );
+
+  foreach ($active as $key => $definition) {
+    $rows = ci_paired_references_get_rows($form, $form_state, $key, $definition);
+    $form_state['ci_paired_references_rows'][$key] = $rows;
+    if (!isset($form_state['ci_paired_references_count'][$key])) {
+      $form_state['ci_paired_references_count'][$key] = max(count($rows), 1);
+    }
+    $count = max((int) $form_state['ci_paired_references_count'][$key], 1);
+    while (count($rows) < $count) {
+      $rows[] = array('left' => '', 'right' => '');
+    }
+    $rows = array_slice($rows, 0, $count);
+    $form_state['ci_paired_references_rows'][$key] = $rows;
+
+    $wrapper = 'ci-paired-references-' . $key . '-wrapper';
+    $form['ci_paired_references'][$key] = array(
+      '#type' => 'fieldset',
+      '#title' => $definition['title'],
+      '#tree' => TRUE,
+      '#prefix' => '<div id="' . $wrapper . '">',
+      '#suffix' => '</div>',
+      '#attributes' => array('class' => array('ci-paired-reference-group', 'ci-paired-reference-' . $key)),
+    );
+    $form['ci_paired_references'][$key]['header'] = array(
+      '#markup' => '<div class="ci-paired-reference-header"><div>' . check_plain($definition['left_label']) . '</div><div>' . check_plain($definition['right_label']) . '</div><div></div></div>',
+    );
+    $form['ci_paired_references'][$key]['rows'] = array(
+      '#type' => 'container',
+      '#tree' => TRUE,
+    );
+
+    foreach ($rows as $delta => $row) {
+      $form['ci_paired_references'][$key]['rows'][$delta] = array(
+        '#type' => 'container',
+        '#attributes' => array('class' => array('ci-paired-reference-row')),
+      );
+      foreach (array('left', 'right') as $side) {
+        $label_key = $side . '_label';
+        $form['ci_paired_references'][$key]['rows'][$delta][$side] = array(
+          '#type' => 'textfield',
+          '#title' => $definition[$label_key],
+          '#title_display' => 'invisible',
+          '#default_value' => isset($row[$side]) ? $row[$side] : '',
+          '#size' => 10,
+          '#maxlength' => 10,
+          '#attributes' => array('inputmode' => 'numeric'),
+        );
+      }
+      $form['ci_paired_references'][$key]['rows'][$delta]['remove'] = array(
+        '#type' => 'submit',
+        '#value' => t('Remove'),
+        '#name' => 'ci_paired_references_remove_' . $key . '_' . $delta,
+        '#submit' => array('ci_paired_references_remove_row_submit'),
+        '#limit_validation_errors' => array(),
+        '#ajax' => array('callback' => 'ci_paired_references_ajax_callback', 'wrapper' => $wrapper),
+        '#ci_paired_references_action' => 'remove',
+        '#ci_paired_references_group' => $key,
+        '#ci_paired_references_delta' => $delta,
+        '#attributes' => array('class' => array('button-secondary', 'ci-paired-reference-remove')),
+      );
+    }
+
+    $form['ci_paired_references'][$key]['add'] = array(
+      '#type' => 'submit',
+      '#value' => t('Add another @label reference', array('@label' => $definition['short_label'])),
+      '#name' => 'ci_paired_references_add_' . $key,
+      '#submit' => array('ci_paired_references_add_row_submit'),
+      '#limit_validation_errors' => array(),
+      '#ajax' => array('callback' => 'ci_paired_references_ajax_callback', 'wrapper' => $wrapper),
+      '#ci_paired_references_action' => 'add',
+      '#ci_paired_references_group' => $key,
+      '#attributes' => array('class' => array('button-secondary')),
+    );
+  }
+
+  if (!isset($form['#validate'])) {
+    $form['#validate'] = array();
+  }
+  if (!in_array('ci_paired_references_validate', $form['#validate'])) {
+    array_unshift($form['#validate'], 'ci_paired_references_validate');
+  }
+}
+
+/**
+ * Loads the current rows for one reference group.
+ */
+function ci_paired_references_get_rows($form, $form_state, $key, $definition) {
+  if (isset($form_state['values']['ci_paired_references'][$key]['rows'])) {
+    return ci_paired_references_normalize_rows($form_state['values']['ci_paired_references'][$key]['rows']);
+  }
+  if (isset($form_state['ci_paired_references_rows'][$key])) {
+    return ci_paired_references_normalize_rows($form_state['ci_paired_references_rows'][$key]);
+  }
+
+  if (isset($form['#node'])) {
+    $left = field_get_items('node', $form['#node'], $definition['left_field']);
+    $right = field_get_items('node', $form['#node'], $definition['right_field']);
+    $left = $left ? $left : array();
+    $right = $right ? $right : array();
+    $count = max(count($left), count($right), 1);
+    $rows = array();
+    for ($i = 0; $i < $count; $i++) {
+      $rows[] = array(
+        'left' => isset($left[$i]['value']) ? $left[$i]['value'] : '',
+        'right' => isset($right[$i]['value']) ? $right[$i]['value'] : '',
+      );
+    }
+    return $rows;
+  }
+  return array(array('left' => '', 'right' => ''));
+}
+
+/**
+ * Normalizes rows without changing their order.
+ */
+function ci_paired_references_normalize_rows($rows) {
+  $normalized = array();
+  if (is_array($rows)) {
+    foreach ($rows as $row) {
+      if (is_array($row)) {
+        $normalized[] = array(
+          'left' => isset($row['left']) ? $row['left'] : '',
+          'right' => isset($row['right']) ? $row['right'] : '',
+        );
+      }
+    }
+  }
+  if (empty($normalized)) {
+    $normalized[] = array('left' => '', 'right' => '');
+  }
+  return array_values($normalized);
+}
+
+/**
+ * AJAX submit handler: add a paired row.
+ */
+function ci_paired_references_add_row_submit($form, &$form_state) {
+  ci_paired_references_change_rows($form_state, 'add');
+}
+
+/**
+ * AJAX submit handler: remove a paired row.
+ */
+function ci_paired_references_remove_row_submit($form, &$form_state) {
+  ci_paired_references_change_rows($form_state, 'remove');
+}
+
+/**
+ * Applies an add or remove action to one group's paired rows.
+ */
+function ci_paired_references_change_rows(&$form_state, $action) {
+  $trigger = $form_state['triggering_element'];
+  $key = $trigger['#ci_paired_references_group'];
+  $rows = isset($form_state['values']['ci_paired_references'][$key]['rows'])
+    ? ci_paired_references_normalize_rows($form_state['values']['ci_paired_references'][$key]['rows'])
+    : (isset($form_state['ci_paired_references_rows'][$key]) ? ci_paired_references_normalize_rows($form_state['ci_paired_references_rows'][$key]) : array(array('left' => '', 'right' => '')));
+
+  if ($action == 'add') {
+    $rows[] = array('left' => '', 'right' => '');
+  }
+  elseif (isset($trigger['#ci_paired_references_delta']) && isset($rows[$trigger['#ci_paired_references_delta']])) {
+    unset($rows[$trigger['#ci_paired_references_delta']]);
+    $rows = array_values($rows);
+    if (empty($rows)) {
+      $rows[] = array('left' => '', 'right' => '');
+    }
+  }
+
+  $form_state['ci_paired_references_rows'][$key] = $rows;
+  $form_state['values']['ci_paired_references'][$key]['rows'] = $rows;
+  $form_state['ci_paired_references_count'][$key] = count($rows);
+  $form_state['rebuild'] = TRUE;
+}
+
+/**
+ * AJAX callback: return the updated group.
+ */
+function ci_paired_references_ajax_callback($form, &$form_state) {
+  $key = $form_state['triggering_element']['#ci_paired_references_group'];
+  return $form['ci_paired_references'][$key];
+}
+
+/**
+ * Validates all active paired references before node validation.
+ */
+function ci_paired_references_validate($form, &$form_state) {
+  if (isset($form_state['triggering_element']['#ci_paired_references_action'])) {
+    return;
+  }
+
+  foreach (ci_paired_references_definitions() as $key => $definition) {
+    if (!isset($form['ci_paired_references'][$key])) {
+      continue;
+    }
+    $rows = isset($form_state['values']['ci_paired_references'][$key]['rows'])
+      ? ci_paired_references_normalize_rows($form_state['values']['ci_paired_references'][$key]['rows'])
+      : array();
+    $form_state['ci_paired_references_rows'][$key] = $rows;
+    foreach ($rows as $delta => $row) {
+      $left = trim($row['left']);
+      $right = trim($row['right']);
+      if ($left === '' && $right === '') {
+        continue;
+      }
+      foreach (array('left' => $definition['left_label'], 'right' => $definition['right_label']) as $side => $label) {
+        if (trim($row[$side]) === '') {
+          form_set_error('ci_paired_references][' . $key . '][rows][' . $delta . '][' . $side, t('@label is required when the paired value is entered.', array('@label' => $label)));
+        }
+        elseif (!preg_match('/^[0-9]+$/', trim($row[$side]))) {
+          form_set_error('ci_paired_references][' . $key . '][rows][' . $delta . '][' . $side, t('@label must be an integer.', array('@label' => $label)));
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_submit().
+ *
+ * Restores paired values after standard Field API processing. This also keeps
+ * custom values available for the Preview page's programmatic submission.
+ */
+function ci_paired_references_node_submit(Node $node, $form, &$form_state) {
+  if ($node->type != 'master_chant') {
+    return;
+  }
+
+  foreach (ci_paired_references_definitions() as $key => $definition) {
+    if (!isset($form['ci_paired_references'][$key])) {
+      continue;
+    }
+    if (isset($form_state['values']['ci_paired_references'][$key]['rows'])) {
+      $rows = ci_paired_references_normalize_rows($form_state['values']['ci_paired_references'][$key]['rows']);
+    }
+    elseif (isset($form_state['ci_paired_references_rows'][$key])) {
+      $rows = ci_paired_references_normalize_rows($form_state['ci_paired_references_rows'][$key]);
+    }
+    else {
+      $rows = ci_paired_references_get_rows($form, $form_state, $key, $definition);
+    }
+
+    $values = array('left' => array(), 'right' => array());
+    foreach ($rows as $row) {
+      $left = trim($row['left']);
+      $right = trim($row['right']);
+      if ($left === '' && $right === '') {
+        continue;
+      }
+      if ($left === '' || $right === '' || !preg_match('/^[0-9]+$/', $left) || !preg_match('/^[0-9]+$/', $right)) {
+        continue;
+      }
+      $values['left'][] = array('value' => (int) $left);
+      $values['right'][] = array('value' => (int) $right);
+    }
+
+    foreach (array('left', 'right') as $side) {
+      $field_name = $definition[$side . '_field'];
+      $language = isset($form_state['ci_paired_references_languages'][$field_name])
+        ? $form_state['ci_paired_references_languages'][$field_name]
+        : ci_paired_references_get_field_language($form, $field_name);
+      $node->{$field_name}[$language] = $values[$side];
+    }
+  }
+}
+
+/**
+ * Determines the language key used by an existing field widget.
+ */
+function ci_paired_references_get_field_language($form, $field_name) {
+  if (isset($form[$field_name]['#language']) && $form[$field_name]['#language'] !== '') {
+    return $form[$field_name]['#language'];
+  }
+  if (isset($form[$field_name]) && is_array($form[$field_name])) {
+    foreach ($form[$field_name] as $key => $value) {
+      if (is_string($key) && substr($key, 0, 1) !== '#') {
+        return $key;
+      }
+    }
+  }
+  return LANGUAGE_NONE;
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function ci_paired_references_field_formatter_info() {
+  return array(
+    'ci_paired_reference' => array(
+      'label' => t('Paired reference'),
+      'field types' => array('number_integer'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function ci_paired_references_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $element = array();
+  if ($display['type'] != 'ci_paired_reference') {
+    return $element;
+  }
+
+  $definition = NULL;
+  foreach (ci_paired_references_definitions() as $candidate) {
+    if ($candidate['left_field'] == $field['field_name']) {
+      $definition = $candidate;
+      break;
+    }
+  }
+  if (!$definition) {
+    return $element;
+  }
+
+  $right_items = field_get_items($entity_type, $entity, $definition['right_field'], $langcode);
+  $right_items = $right_items ? $right_items : array();
+  foreach ($items as $delta => $left_item) {
+    if (!isset($left_item['value'])) {
+      continue;
+    }
+    $output = t('vol.') . ' ' . check_plain($left_item['value']);
+    if (isset($right_items[$delta]['value'])) {
+      $output .= ', ' . $definition['right_abbreviation'] . ' ' . check_plain($right_items[$delta]['value']);
+    }
+    $element[$delta] = array('#markup' => $output);
+  }
+  return $element;
+}
+
+/**
+ * Implements hook_preprocess_field().
+ *
+ * Presents the combined field with the reference type's short label.
+ */
+function ci_paired_references_preprocess_field(&$variables) {
+  if (empty($variables['element']['#field_name'])) {
+    return;
+  }
+  foreach (ci_paired_references_definitions() as $definition) {
+    if ($variables['element']['#field_name'] == $definition['left_field']) {
+      $variables['label'] = t($definition['short_label']);
+      return;
+    }
+  }
+}
