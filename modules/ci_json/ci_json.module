@@ -1,0 +1,842 @@
+<?php
+
+/**
+ * @file
+ * Public data export endpoints for Cantus Index.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function ci_json_menu() {
+
+  $items['json-nextchants/%'] = array(
+    'title' => 'Get Cantus IDs which usually follow',
+    'page callback' => 'ci_json_nextchants',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+  );
+
+  $items['json-merged-feasts'] = array(
+    'title' => 'All the merged feast from Cantus Index',
+    'page callback' => 'ci_json_feasts_merged',
+    'access callback' => TRUE,
+  );
+
+  $items['json-merged-chants'] = array(
+    'title' => 'All the merged Cantus IDs',
+    'page callback' => 'ci_json_chants_merged',
+    'access callback' => TRUE,
+  );
+
+  $items['json-text'] = array(
+    'title' => 'Search texts in Cantus Index',
+    'page callback' => 'ci_json_text_search_page',
+    'access callback' => TRUE,
+  );
+
+  $items['json-feasts'] = array(
+    'title' => 'JSON list of all the feasts in Cantus Index',
+    'page callback' => 'ci_json_feasts_all',
+    'access callback' => TRUE,
+  );
+
+  $items['csv-feasts'] = array(
+    'title' => 'CSV list of all the feasts in Cantus Index',
+    'page callback' => 'ci_json_csv_feasts_all',
+    'access callback' => TRUE,
+  );
+
+  $items['xls-feasts'] = array(
+    'title' => 'XLS list of all the feasts in Cantus Index',
+    'page callback' => 'ci_json_xls_feasts_all',
+    'access callback' => TRUE,
+  );
+
+  $items['json-cids'] = array(
+    'title' => 'JSON list of all the master chants Cantus Index',
+    'page callback' => 'ci_json_cids_page',
+    'access callback' => TRUE,
+  );
+
+  $items['json-cid-info/%'] = array(
+    'page callback' => 'ci_json_cid_info',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['json-cid-data'] = array(
+    'title' => 'Details of master chant in Cantus Index',
+    'page callback' => 'ci_json_cid_details_page',
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+/**
+ * Checks whether a master chant exists with the given Cantus ID.
+ */
+function ci_json_is_cid_valid($cid) {
+  $query = db_select('node', 'n')
+    ->fields('n', array('nid'))
+    ->condition('n.type', 'master_chant', '=')
+    ->condition('n.title', $cid, '=')
+    ->range(0, 1)
+    ->execute();
+
+  return ($query->fetchAssoc() != NULL);
+}
+
+/**
+ * Builds next-chants fields using the original my_tools response format.
+ *
+ * Unlike the detail endpoint, this response has no reverse relationships.
+ *
+ * @return array|null
+ *   Exported field values, or NULL if the Cantus ID is not found.
+ */
+function ci_json_nextchant_fields_by_cid($cid) {
+  if (empty($cid)) {
+    $cid = arg(1);
+  }
+
+  $result = db_query("SELECT nid FROM {node} WHERE title = :cid AND type = 'master_chant'", array(':cid' => $cid));
+  $nid = $result->fetchField();
+
+  if (!empty($nid)) {
+    $node = node_load($nid);
+    $field_values = array();
+    $field_instances = field_info_instances('node', 'master_chant');
+
+    foreach ($field_instances as $field_name => $instance) {
+      if (strpos($field_name, 'field_') === 0 && substr($field_name, -3) !== '_by') {
+        $field_item = field_get_items('node', $node, $field_name);
+        if (is_array($field_item)) {
+          if ($field_name == 'field_genre' || $field_name == 'field_feast') {
+            $term_name = NULL;
+            $item = reset($field_item);
+            if ($item) {
+              $term = taxonomy_term_load($item['target_id']);
+              if ($term) {
+                $term_name = $term->name;
+              }
+            }
+            $field_values[$field_name] = $term_name;
+          } else {
+            $field_values[$field_name] = $field_item[0]['value'] ?? NULL;
+          }
+        } else {
+          $field_values[$field_name] = NULL;
+        }
+      }
+    }
+    return $field_values;
+  }
+}
+
+/**
+ * Outputs the legacy chant detail response for existing API clients.
+ */
+function ci_json_cid_details_page() {
+  $cid = arg(1);
+  $select = db_select('node', 'n');
+  $select->condition('title', $cid, '=')
+         ->fields('n', array('nid'));
+  $result = $select->execute();
+  $rows = array();
+  foreach ($result as $item) {
+
+    $node = node_load($item->nid);
+
+    $field_full_text = isset($node->field_full_text['und'][0]['value']) ? $node->field_full_text['und'][0]['value'] : NULL;
+
+    $field_genre = NULL;
+    if (isset($node->field_genre['und'][0]['target_id'])) {
+      $tid = $node->field_genre['und'][0]['target_id'];
+      $term = taxonomy_term_load($tid);
+      $field_genre = $term ? $term->name : NULL;
+    }
+
+    $field_feast = NULL;
+    if (isset($node->field_feast['und'][0]['target_id'])) {
+      $tid = $node->field_feast['und'][0]['target_id'];
+      $term = taxonomy_term_load($tid);
+      $field_feast = $term ? $term->name : NULL;
+    }
+
+    $field_language = NULL;
+    if (isset($node->field_language['und'][0]['target_id'])) {
+      $tid = $node->field_language['und'][0]['target_id'];
+      $term = taxonomy_term_load($tid);
+      $field_language = $term ? $term->name : NULL;
+    }
+
+    $field_tags = NULL;
+    if (isset($node->field_tags['und'][0]['target_id'])) {
+      $tid = $node->field_tags['und'][0]['target_id'];
+      $term = taxonomy_term_load($tid);
+      $field_tags = $term ? $term->name : NULL;
+    }
+
+    $field_proofread_by = NULL;
+    if (isset($node->field_proofread_by['und'][0]['target_id'])) {
+      $uid = $node->field_proofread_by['und'][0]['target_id'];
+      $user = user_load($uid);
+      $field_proofread_by = $user ? $user->name : NULL;
+    }
+
+    $field_full_text_submitted_by = NULL;
+    if (isset($node->field_full_text_submitted_by['und'][0]['target_id'])) {
+      $uid = $node->field_full_text_submitted_by['und'][0]['target_id'];
+      $user = user_load($uid);
+      $field_full_text_submitted_by = $user ? $user->name : NULL;
+    }
+
+    $field_related_chant_id = isset($node->field_related_chant_id['und'][0]['value']) ? $node->field_related_chant_id['und'][0]['value'] : NULL;
+    $field_similar_chant_id = isset($node->field_similar_chant_id['und'][0]['value']) ? $node->field_similar_chant_id['und'][0]['value'] : NULL;
+    $field_troped_chant_id = isset($node->field_troped_chant_id['und'][0]['value']) ? $node->field_troped_chant_id['und'][0]['value'] : NULL;
+    $field_fulltext_source = isset($node->field_fulltext_source['und'][0]['value']) ? $node->field_fulltext_source['und'][0]['value'] : NULL;
+    $field_cao = isset($node->field_cao['und'][0]['value']) ? $node->field_cao['und'][0]['value'] : NULL;
+    $field_cao_concordances = isset($node->field_cao_concordances['und'][0]['value']) ? $node->field_cao_concordances['und'][0]['value'] : NULL;
+    $field_ah_volume = isset($node->field_ah_volume['und'][0]['value']) ? $node->field_ah_volume['und'][0]['value'] : NULL;
+    $field_ah_item = isset($node->field_ah_item['und'][0]['value']) ? $node->field_ah_item['und'][0]['value'] : NULL;
+    $field_notes = isset($node->field_notes['und'][0]['value']) ? $node->field_notes['und'][0]['value'] : NULL;
+
+    $author = NULL;
+
+    if (!empty($node->uid)) {
+      $user = user_load($node->uid);
+      $author = $user ? $user->name : NULL;
+    }
+
+    $row = array(
+      'cid' => $cid,
+      'genre' => $field_genre,
+      'feast' => $field_feast,
+      'text' => $field_full_text,
+      'related' => $field_related_chant_id,
+      'similar' => $field_similar_chant_id,
+      'troped' => $field_troped_chant_id,
+      'source' => $field_fulltext_source,
+      'language' => $field_language,
+      'tags' => $field_tags,
+      'cao' => $field_cao,
+      'cao_concordances' => $field_cao_concordances,
+      'ah_volume' => $field_ah_volume,
+      'ah_item' => $field_ah_item,
+      'notes' => $field_notes,
+      'author' => $author,
+      'fulltext_submitted_by' => $field_full_text_submitted_by,
+      'proofread_by' => $field_proofread_by,
+    );
+    $rows[] = $row;
+  }
+  backdrop_json_output($rows);
+  exit;
+}
+
+/**
+ * Outputs chant fields and reverse relationships for a Cantus ID.
+ */
+function ci_json_cid_info($cid) {
+  $info = ci_json_export_fields_by_cid($cid);
+
+  backdrop_json_output(array(
+    'info' => $info,
+  ));
+
+  backdrop_exit();
+}
+
+/**
+ * Builds the chant detail fields, including reverse relationships.
+ */
+function ci_json_export_fields_by_cid($cid) {
+  if (empty($cid)) {
+    return NULL;
+  }
+
+  $result = db_query(
+    "SELECT nid
+     FROM {node}
+     WHERE title = :cid
+       AND type = 'master_chant'",
+    array(':cid' => $cid)
+  );
+
+  $nid = $result->fetchField();
+
+  if (empty($nid)) {
+    return NULL;
+  }
+
+  $node = node_load($nid);
+
+  if (!$node) {
+    return NULL;
+  }
+
+  $field_values = array();
+
+  $field_instances = field_info_instances('node', 'master_chant');
+
+  foreach ($field_instances as $field_name => $instance) {
+
+    if (
+      strpos($field_name, 'field_') === 0 &&
+      substr($field_name, -3) !== '_by'
+    ) {
+      $field_item = field_get_items('node', $node, $field_name);
+
+      if (is_array($field_item)) {
+
+        if ($field_name == 'field_genre' || $field_name == 'field_feast') {
+          $term_name = NULL;
+          $item = reset($field_item);
+
+          if (!empty($item['target_id'])) {
+            $term = taxonomy_term_load($item['target_id']);
+
+            if ($term) {
+              $term_name = $term->name;
+            }
+          }
+
+          $field_values[$field_name] = $term_name;
+        } else {
+          $field_values[$field_name] = $field_item[0]['value'] ?? NULL;
+        }
+      } else {
+        $field_values[$field_name] = NULL;
+      }
+    }
+  }
+
+  $field_values['related_chants'] = ci_json_get_reverse_chants_with_genre(
+    $cid,
+    'field_related_chant_id'
+  );
+
+  $field_values['similar_chants'] = ci_json_get_reverse_chants_with_genre(
+    $cid,
+    'field_similar_chant_id'
+  );
+
+  $field_values['troped_chants'] = ci_json_get_reverse_chants_with_genre(
+    $cid,
+    'field_troped_chant_id'
+  );
+
+  return $field_values;
+}
+
+/**
+ * Finds chants pointing to a CID through the specified relationship field.
+ */
+function ci_json_get_reverse_chants_with_genre($cid, $field_name) {
+  $table = 'field_data_' . $field_name;
+  $value_column = $field_name . '_value';
+
+  $query = db_select($table, 'r');
+
+  $query->join(
+    'node',
+    'n',
+    'n.nid = r.entity_id'
+  );
+
+  $query->leftJoin(
+    'field_data_field_genre',
+    'g',
+    "g.entity_id = n.nid
+     AND g.entity_type = 'node'
+     AND g.bundle = 'master_chant'
+     AND g.deleted = 0"
+  );
+
+  $query->leftJoin(
+    'taxonomy_term_data',
+    'term',
+    'term.tid = g.field_genre_target_id'
+  );
+
+  $query->addField('n', 'title', 'cantus_id');
+  $query->addField('term', 'name', 'genre');
+
+  $query->condition('r.entity_type', 'node');
+  $query->condition('r.bundle', 'master_chant');
+  $query->condition('r.deleted', 0);
+  $query->condition('r.' . $value_column, $cid);
+
+  $query->condition('n.type', 'master_chant');
+  $query->condition('n.status', 1);
+
+  $query->distinct();
+  $query->orderBy('n.title', 'ASC');
+
+  $result = $query->execute();
+
+  $chants = array();
+
+  foreach ($result as $row) {
+    $chants[] = array(
+      'cantus_id' => $row->cantus_id,
+      'genre' => $row->genre,
+    );
+  }
+
+  return $chants;
+}
+
+/**
+ * Outputs the list of master chant identifiers.
+ */
+function ci_json_cids_page() {
+  $arrs = array();
+  $query = "SELECT nid, title FROM node WHERE type='master_chant'";
+  $result = db_query($query);
+  foreach ($result as $item2) {
+    $arr = array(
+      'cid' => $item2->title
+    );
+    $arrs[] = $arr;
+  }
+  backdrop_json_output($arrs);
+  backdrop_exit();
+}
+
+/**
+ * Downloads feast data as semicolon-separated CSV.
+ */
+function ci_json_csv_feasts_all() {
+  $from = 0;
+  $count = 99999999;
+
+  if (isset($_GET['from'])) {
+    $from = (int) $_GET['from'];
+  }
+  if (isset($_GET['count'])) {
+    $count = (int) $_GET['count'];
+  }
+
+  $select = db_select('taxonomy_term_data', 't')
+    ->condition('vocabulary', 'feast', '=')
+    ->fields('t', array('tid'))
+    ->range($from, $count);
+
+  $result = $select->execute();
+
+  header('Content-Type: text/csv; charset=utf-8');
+  header('Content-Disposition: attachment; filename="feasts.csv"');
+
+  $output = fopen('php://output', 'w');
+
+  $delimiter = ';';
+
+  fputcsv($output, array(
+    'feastcode',
+    'feastname',
+    'description',
+    'feastdate',
+    'feastday',
+    'feastmonth',
+    'feastnotes',
+    'prev_feast_codes',
+    'alt_feast_names',
+  ), $delimiter);
+
+  foreach ($result as $item) {
+    $tid = $item->tid;
+    $term = taxonomy_term_load($tid);
+
+    $feast = $term->name;
+
+    $feastCode = !empty($term->field_feast_code['und'][0]['value']) ? $term->field_feast_code['und'][0]['value'] : '';
+
+    $description = !empty($term->description) ? $term->description : '';
+
+    $description = strip_tags($description);
+
+    $description = html_entity_decode($description, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    $description = trim(preg_replace('/\s+/u', ' ', $description));
+
+    $feastdate = !empty($term->field_feast_date['und'][0]['value']) ? $term->field_feast_date['und'][0]['value'] : '';
+    $feastday = !empty($term->field_day['und'][0]['value']) ? $term->field_day['und'][0]['value'] : '';
+    $feastmonth = !empty($term->field_month['und'][0]['value']) ? $term->field_month['und'][0]['value'] : '';
+
+    $feastnotes = !empty($term->field_notes['und'][0]['value']) ? $term->field_notes['und'][0]['value'] : '';
+
+    $feastnotes = strip_tags($feastnotes);
+
+    $feastnotes = html_entity_decode($feastnotes, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    $feastnotes = trim(preg_replace('/\s+/u', ' ', $feastnotes));
+
+    $prevCodes = array();
+    if (!empty($term->field_feast_code_prev['und'])) {
+      foreach ($term->field_feast_code_prev['und'] as $value) {
+        if (!empty($value['value'])) {
+          $prevCodes[] = $value['value'];
+        }
+      }
+    }
+
+    $altNames = array();
+    if (!empty($term->field_name_alternative['und'])) {
+      foreach ($term->field_name_alternative['und'] as $value) {
+        if (!empty($value['value'])) {
+          $altNames[] = $value['value'];
+        }
+      }
+    }
+
+    $delimiter = ';';
+
+    fputcsv($output, array(
+      $feastCode,
+      $feast,
+      $description,
+      $feastdate,
+      $feastday,
+      $feastmonth,
+      $feastnotes,
+      implode('|', $prevCodes),
+      implode('|', $altNames),
+    ), $delimiter);
+  }
+
+  fclose($output);
+  exit;
+}
+
+/**
+ * Downloads the legacy tab-separated export with its existing XLS filename.
+ */
+function ci_json_xls_feasts_all() {
+  $from = 0;
+  $count = 99999999;
+
+  if (isset($_GET['from'])) {
+    $from = (int) $_GET['from'];
+  }
+  if (isset($_GET['count'])) {
+    $count = (int) $_GET['count'];
+  }
+
+  $select = db_select('taxonomy_term_data', 't')
+    ->condition('vocabulary', 'feast', '=')
+    ->fields('t', array('tid'))
+    ->range($from, $count);
+
+  $result = $select->execute();
+
+  header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+  header('Content-Disposition: attachment; filename="feasts.xls"');
+  header('Pragma: no-cache');
+  header('Expires: 0');
+
+  echo "\xEF\xBB\xBF";
+
+  $output = fopen('php://output', 'w');
+
+  fputcsv($output, array(
+    'feastcode',
+    'feastname',
+    'description',
+    'feastdate',
+    'feastday',
+    'feastmonth',
+    'feastnotes',
+    'prev_feast_codes',
+    'alt_feast_names',
+  ), "\t");
+
+  foreach ($result as $item) {
+    $tid = $item->tid;
+    $term = taxonomy_term_load($tid);
+
+    $feast = $term->name;
+    $feastCode = !empty($term->field_feast_code['und'][0]['value']) ? $term->field_feast_code['und'][0]['value'] : '';
+    $description = !empty($term->description) ? $term->description : '';
+    $feastdate = !empty($term->field_feast_date['und'][0]['value']) ? $term->field_feast_date['und'][0]['value'] : '';
+    $feastday = !empty($term->field_day['und'][0]['value']) ? $term->field_day['und'][0]['value'] : '';
+    $feastmonth = !empty($term->field_month['und'][0]['value']) ? $term->field_month['und'][0]['value'] : '';
+    $feastnotes = !empty($term->field_notes['und'][0]['value']) ? $term->field_notes['und'][0]['value'] : '';
+
+    $prevCodes = array();
+    if (!empty($term->field_feast_code_prev['und'])) {
+      foreach ($term->field_feast_code_prev['und'] as $value) {
+        if (!empty($value['value'])) {
+          $prevCodes[] = $value['value'];
+        }
+      }
+    }
+
+    $altNames = array();
+    if (!empty($term->field_name_alternative['und'])) {
+      foreach ($term->field_name_alternative['und'] as $value) {
+        if (!empty($value['value'])) {
+          $altNames[] = $value['value'];
+        }
+      }
+    }
+
+    fputcsv($output, array(
+      $feastCode,
+      $feast,
+      $description,
+      $feastdate,
+      $feastday,
+      $feastmonth,
+      $feastnotes,
+      implode(' | ', $prevCodes),
+      implode(' | ', $altNames),
+    ), "\t");
+  }
+
+  fclose($output);
+  exit;
+}
+
+/**
+ * Outputs feast data as JSON.
+ */
+function ci_json_feasts_all() {
+  $from = 0;
+  $count = 99999999;
+
+  if (isset($_GET['from'])) {
+    $from = $_GET['from'];
+  }
+  if (isset($_GET['count'])) {
+    $count = $_GET['count'];
+  }
+
+  $select = db_select('taxonomy_term_data', 't')
+    ->condition('vocabulary', 'feast', '=')
+    ->fields('t', array('tid'))
+    ->range($from, $count);
+
+  $result = $select->execute();
+  $rows = array();
+
+  foreach ($result as $item) {
+    $tid = $item->tid;
+    $term = taxonomy_term_load($tid);
+    $feast = $term->name;
+
+    $feastCode = !empty($term->field_feast_code['und'][0]['value']) ? $term->field_feast_code['und'][0]['value'] : '';
+    $description = $term->description;
+    $feastdate = !empty($term->field_feast_date['und'][0]['value']) ? $term->field_feast_date['und'][0]['value'] : '';
+    $feastday = !empty($term->field_day['und'][0]['value']) ? $term->field_day['und'][0]['value'] : '';
+    $feastmonth = !empty($term->field_month['und'][0]['value']) ? $term->field_month['und'][0]['value'] : '';
+    $feastnotes = !empty($term->field_notes['und'][0]['value']) ? $term->field_notes['und'][0]['value'] : '';
+
+    $prevCodes = array();
+    if (!empty($term->field_feast_code_prev['und'])) {
+      foreach ($term->field_feast_code_prev['und'] as $value) {
+        if (!empty($value['value'])) {
+          $prevCodes[] = $value['value'];
+        }
+      }
+    }
+
+    $altNames = array();
+    if (!empty($term->field_name_alternative['und'])) {
+      foreach ($term->field_name_alternative['und'] as $value) {
+        if (!empty($value['value'])) {
+          $altNames[] = $value['value'];
+        }
+      }
+    }
+
+    $row = array(
+      'feastcode' => $feastCode,
+      'feastname' => $feast,
+      'description' => $description,
+      'feastdate' => $feastdate,
+      'feastday' => $feastday,
+      'feastmonth' => $feastmonth,
+      'feastnotes' => $feastnotes,
+      'prev_feast_codes' => $prevCodes,
+      'alt_feast_names' => $altNames,
+    );
+
+    $rows[] = $row;
+  }
+
+  backdrop_json_output($rows);
+  exit;
+}
+
+/**
+ * Outputs chants that follow the requested CID in concordance sequences.
+ */
+function ci_json_nextchants($cid) {
+  if (ci_json_is_cid_valid($cid)) {
+    $sql = "SELECT a.cantus_id, COUNT(*) as follow_count
+          FROM aaconcordances_copy a
+          JOIN aaconcordances_copy b ON a.siglum = b.siglum AND a.folio = b.folio
+          WHERE b.cantus_id = :cid
+          AND a.sequence = b.sequence + 1
+          AND a.cantus_id IS NOT NULL AND a.cantus_id <> ''
+          GROUP BY a.cantus_id
+          ORDER BY follow_count DESC";
+    $result = db_query($sql, array(':cid' => $cid));
+    foreach ($result as $item) {
+      $cid = trim($item->cantus_id);
+      $arr = array('cid' => $cid, 'count' => $item->follow_count);
+      $arr ['info'] = ci_json_nextchant_fields_by_cid($cid);
+      $arrs[] = $arr;
+    }
+  } else {
+    $arrs[] = 'Cantus ID is not valid';
+  }
+  backdrop_json_output($arrs);
+  exit;
+}
+
+/**
+ * Outputs published merge records after the requested ID cursor.
+ */
+function ci_json_chants_merged() {
+  $skip = 0;
+  $limit = 10000;
+
+  $params = backdrop_get_query_parameters();
+
+  if (isset($params['skip'])) {
+    $skip = max(0, intval($params['skip']));
+  }
+
+  if (isset($params['limit'])) {
+    $limit = intval($params['limit']);
+  }
+
+  $query1 = "
+        SELECT id, old, new, date
+        FROM {aamerged}
+        WHERE id > :skip
+          AND published = 1
+        ORDER BY id ASC
+    ";
+
+  $result1 = db_query_range(
+    $query1,
+    0,
+    $limit,
+    array(':skip' => $skip)
+  );
+
+  $arrs = array();
+
+  foreach ($result1 as $item) {
+    $arrs[] = array(
+      'id' => $item->id,
+      'old' => $item->old,
+      'new' => $item->new,
+      'date' => $item->date,
+    );
+  }
+
+  backdrop_json_output($arrs);
+  exit;
+}
+
+/**
+ * Outputs feast merge records.
+ */
+function ci_json_feasts_merged() {
+  $query1 = "SELECT oldname, newname FROM {aamergedfeasts}";
+  $result1 = db_query($query1);
+  $arrs = array();
+  foreach ($result1 as $item) {
+    $arr = array('oldname' => $item->oldname, 'newname' => $item->newname);
+    $arrs[] = $arr;
+  }
+  backdrop_json_output($arrs);
+  exit;
+}
+
+/**
+ * Searches chant texts, preserving legacy wildcard and fallback behavior.
+ */
+function ci_json_text_search_page() {
+
+  $text = arg(1)."%";
+  $text1 = "%".arg(1)."%";
+
+  if (strlen($text1) >= 2) {
+    $query = "SELECT b.entity_id AS nid,
+                b.field_full_text_value AS ft,
+                node.title AS cid,
+                term.name AS genre
+                FROM field_data_field_full_text b
+                INNER JOIN node ON node.nid = b.entity_id
+                INNER JOIN field_data_field_genre g ON g.entity_id = b.entity_id
+                INNER JOIN taxonomy_term_data term ON term.tid = g.field_genre_target_id
+                WHERE b.field_full_text_value LIKE :prefix
+                ORDER BY b.field_full_text_value
+                LIMIT 0, 100";
+    $result = db_query($query, array(':prefix' => $text));
+    $arrs = array();
+    $i = 0;
+    foreach ($result as $item) {
+      $i++;
+      $fulltext = str_replace("\r\n", '', $item->ft);
+      $arr = array('cid' => $item->cid, 'fulltext' => $fulltext, 'genre' => $item->genre);
+      $arrs[] = $arr;
+    }
+    if ($i < 50) {
+      $query1 = "SELECT b.entity_id AS nid,
+                    b.field_full_text_value AS ft,
+                    node.title AS cid,
+                    term.name AS genre
+                    FROM field_data_field_full_text b
+                    INNER JOIN node ON node.nid = b.entity_id
+                    INNER JOIN field_data_field_genre g ON g.entity_id = b.entity_id
+                    INNER JOIN taxonomy_term_data term ON term.tid = g.field_genre_target_id
+                    WHERE b.field_full_text_value LIKE :contains
+                    AND b.field_full_text_value NOT LIKE :prefix
+                    ORDER BY b.field_full_text_value
+                    LIMIT 0, 100";
+
+      $result1 = db_query($query1, array(':contains' => $text1, ':prefix' => $text));
+      foreach ($result1 as $item) {
+        $i++;
+        $fulltext = str_replace("\r\n", '', $item->ft);
+        $arr = array('cid' => $item->cid, 'fulltext' => $fulltext, 'genre' => $item->genre);
+        $arrs[] = $arr;
+      }
+    }
+    if ($i < 1) {
+      $query1 = "SELECT b.entity_id AS nid,
+                    b.field_full_text_value AS ft,
+                    node.title AS cid,
+                    term.name AS genre
+                    FROM field_data_field_full_text b
+                    INNER JOIN node ON node.nid = b.entity_id
+                    INNER JOIN field_data_field_genre g ON g.entity_id = b.entity_id
+                    INNER JOIN taxonomy_term_data term ON term.tid = g.field_genre_target_id
+                    WHERE node.title LIKE :contains
+                    ORDER BY b.field_full_text_value
+                    LIMIT 0, 100";
+
+      $result2 = db_query($query1, array(':contains' => $text1));
+      foreach ($result2 as $item) {
+        $i++;
+        $fulltext = str_replace("\r\n", '', $item->ft);
+        $arr = array('cid' => $item->cid, 'fulltext' => $fulltext, 'genre' => $item->genre);
+        $arrs[] = $arr;
+      }
+    }
+
+    backdrop_json_output($arrs);
+    exit;
+  }
+}
