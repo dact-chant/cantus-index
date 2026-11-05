@@ -1,0 +1,8 @@
+name = CI JSON
+description = Provides Cantus Index JSON endpoints and feast data downloads.
+backdrop = 1.x
+type = module
+package = Cantus Index
+dependencies[] = node
+dependencies[] = field
+dependencies[] = taxonomy
