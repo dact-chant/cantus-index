@@ -24,9 +24,13 @@ The implementation is isolated in `ci_master_chants_generate_incipit()`.
 3. Open `/admin/content/ci-master-chants` as a user with `administer nodes`.
 4. Confirm **Backfill missing incipits** and let the batch finish.
 
-The backfill scans master chants in batches of 25, including unpublished nodes.
-It checks blank values again after loading each node and fills only empty or
-whitespace-only incipits when full text is available. It can be rerun safely.
+The backfill selects candidates in SQL: only master chants with a missing,
+NULL, empty, or whitespace-only incipit and nonblank full text are returned.
+A LEFT JOIN includes chants without an incipit field row. The batch loads only
+these candidates, 25 at a time, including unpublished nodes. It checks blank
+values again after loading each node to preserve concurrent edits. It can be
+rerun safely. Keyset pagination (`nid > last_nid`) avoids skipping candidates
+as the preceding batch fills incipits and removes them from the SQL result.
 There is no automatic full-database scan on module installation or page visits.
 
 Only the incipit field is written through Field API on the current revision;

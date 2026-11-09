@@ -108,7 +108,7 @@ function ci_master_chants_backfill_form($form, &$form_state) {
   return confirm_form($form,
     t('Generate missing chant incipits?'),
     'admin/content',
-    t('This batch checks all master chants, including unpublished chants. It fills only blank incipits with available full text. Existing nonblank incipits, node timestamps, and revision history are preserved.'),
+    t('This batch selects only master chants with missing or blank incipits and available full text, including unpublished chants. Existing nonblank incipits, node timestamps, and revision history are preserved.'),
     t('Backfill missing incipits'));
 }
 
@@ -125,26 +125,59 @@ function ci_master_chants_backfill_form_submit($form, &$form_state) {
 }
 
 /**
- * Scans a stable ID range without holding all node IDs in memory.
+ * Selects only chants with a blank incipit and nonblank full text in SQL.
+ *
+ * A LEFT JOIN includes nodes without any incipit field row. Language matching
+ * also finds missing translations without selecting existing nonblank values.
+ */
+function ci_master_chants_missing_incipit_query() {
+  $field = field_info_field('field_incipit');
+  $query = db_select('node', 'n')->fields('n', array('nid'))->distinct();
+  $query->innerJoin('field_data_field_full_text', 'f', "f.entity_id = n.nid AND f.entity_type = 'node' AND f.bundle = 'master_chant' AND f.deleted = 0 AND f.delta = 0");
+  $language = !empty($field['translatable']) ? 'i.language = f.language' : 'i.language = :ci_incipit_language';
+  $arguments = !empty($field['translatable']) ? array() : array(':ci_incipit_language' => LANGUAGE_NONE);
+  $query->leftJoin('field_data_field_incipit', 'i', "i.entity_id = n.nid AND i.entity_type = 'node' AND i.bundle = 'master_chant' AND i.deleted = 0 AND i.delta = 0 AND " . $language, $arguments);
+  $query->condition('n.type', 'master_chant');
+  // Match PHP trim(): spaces, tabs, CR/LF, vertical tabs, and NUL bytes.
+  // REPLACE with bound characters is portable across SQL storage backends.
+  foreach (array('i.field_incipit_value' => 'incipit', 'f.field_full_text_value' => 'fulltext') as $column => $label) {
+    $expression = $column;
+    $arguments = array();
+    foreach (array("\t", "\n", "\r", "\x0B", "\0") as $index => $character) {
+      $placeholder = ':ci_' . $label . '_ws_' . $index;
+      $expression = 'REPLACE(' . $expression . ', ' . $placeholder . ", '')";
+      $arguments[$placeholder] = $character;
+    }
+    $expression = 'TRIM(' . $expression . ')';
+    if ($label === 'incipit') {
+      $query->where('(' . $column . ' IS NULL OR ' . $expression . " = '')", $arguments);
+    }
+    else {
+      $query->where($expression . " <> ''", $arguments);
+    }
+  }
+  return $query;
+}
+
+/**
+ * Processes SQL-selected candidates in stable ID order, without OFFSET.
  */
 function ci_master_chants_backfill_batch(&$context) {
   if (!ci_master_chants_fields_ready()) {
     throw new Exception('The required master chant text fields are missing.');
   }
   if (!isset($context['sandbox']['last_nid'])) {
-    $query = db_select('node', 'n')->condition('type', 'master_chant');
-    $query->addExpression('MAX(n.nid)', 'maximum');
-    $maximum = (int) $query->execute()->fetchField();
-    $total = db_select('node', 'n')->condition('type', 'master_chant')->condition('nid', $maximum, '<=')->countQuery()->execute()->fetchField();
+    $query = ci_master_chants_missing_incipit_query();
+    $total = (clone $query)->countQuery()->execute()->fetchField();
+    $maximum = (int) $query->orderBy('n.nid', 'DESC')->range(0, 1)->execute()->fetchField();
     $context['sandbox'] = array('last_nid' => 0, 'maximum' => $maximum, 'total' => (int) $total, 'processed' => 0);
     $context['results'] = array('updated' => 0, 'checked' => 0);
   }
   $sandbox = &$context['sandbox'];
-  $nids = db_select('node', 'n')->fields('n', array('nid'))
-    ->condition('type', 'master_chant')
-    ->condition('nid', $sandbox['last_nid'], '>')
-    ->condition('nid', $sandbox['maximum'], '<=')
-    ->orderBy('nid')->range(0, 25)->execute()->fetchCol();
+  $nids = ci_master_chants_missing_incipit_query()
+    ->condition('n.nid', $sandbox['last_nid'], '>')
+    ->condition('n.nid', $sandbox['maximum'], '<=')
+    ->orderBy('n.nid')->range(0, 25)->execute()->fetchCol();
   foreach ($nids as $nid) {
     // Bypass the request's entity cache and recheck blanks immediately before use.
     $node = node_load($nid, NULL, TRUE);
