@@ -1,0 +1,7 @@
+name = CI Master Chants
+description = Generates stored chant incipits and backfills missing incipits in batches.
+backdrop = 1.x
+type = module
+package = Cantus Index
+dependencies[] = node
+dependencies[] = text
