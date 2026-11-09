@@ -1,0 +1,190 @@
+<?php
+
+/**
+ * @file
+ * Maintains stored incipits for existing master chant fields.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function ci_master_chants_menu() {
+  $items['admin/content/ci-master-chants'] = array(
+    'title' => 'Backfill chant incipits',
+    'description' => 'Generate missing incipits from chant full text.',
+    'page callback' => 'backdrop_get_form',
+    'page arguments' => array('ci_master_chants_backfill_form'),
+    'access arguments' => array('administer nodes'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Returns whether the existing fields support stored text values.
+ */
+function ci_master_chants_fields_ready() {
+  foreach (array('field_full_text', 'field_incipit') as $name) {
+    $field = field_info_field($name);
+    if (!$field || !in_array($field['type'], array('text', 'text_long', 'text_with_summary')) || !field_info_instance('node', $name, 'master_chant')) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * Generates the first ten whitespace-separated words as plain text.
+ *
+ * The destination field capacity remains an upper bound on stored length.
+ */
+function ci_master_chants_generate_incipit($text) {
+  // Replace tags with spaces before decoding entities, retaining word boundaries.
+  $text = preg_replace('/<[^>]*>/u', ' ', $text);
+  $text = decode_entities($text);
+  $text = trim(preg_replace('/[\s\p{Z}]+/u', ' ', $text));
+  $text = implode(' ', array_slice(explode(' ', $text), 0, 10));
+  $field = field_info_field('field_incipit');
+  if (!empty($field['settings']['max_length'])) {
+    // This is a stored sort value: do not add a display ellipsis.
+    $text = truncate_utf8($text, (int) $field['settings']['max_length'], TRUE, FALSE);
+  }
+  return $text;
+}
+
+/**
+ * Populates incipits, optionally preserving every existing nonblank value.
+ *
+ * Returns TRUE when at least one language value changed. Untranslated targets
+ * use the full-text language selected by Field API; translated targets retain
+ * the source language keys.
+ */
+function ci_master_chants_populate($node, $only_empty = FALSE) {
+  if ($node->type !== 'master_chant' || !ci_master_chants_fields_ready() || !isset($node->field_full_text)) {
+    return FALSE;
+  }
+  $field = field_info_field('field_incipit');
+  $sources = $node->field_full_text;
+  if (empty($field['translatable'])) {
+    $items = field_get_items('node', $node, 'field_full_text');
+    $sources = array(LANGUAGE_NONE => $items ? $items : array());
+  }
+  elseif (!$only_empty && !empty($node->field_incipit)) {
+    // Clear obsolete language values when their full text was removed.
+    $sources += array_fill_keys(array_keys($node->field_incipit), array());
+  }
+  $changed = FALSE;
+  foreach ($sources as $langcode => $items) {
+    $old = isset($node->field_incipit[$langcode][0]['value']) ? $node->field_incipit[$langcode][0]['value'] : '';
+    if ($only_empty && trim($old) !== '') {
+      continue;
+    }
+    $text = isset($items[0]['value']) ? $items[0]['value'] : '';
+    $incipit = ci_master_chants_generate_incipit($text);
+    if ($old === $incipit) {
+      continue;
+    }
+    $node->field_incipit[$langcode] = $incipit === '' ? array() : array(array('value' => $incipit, 'format' => NULL));
+    $changed = TRUE;
+  }
+  return $changed;
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function ci_master_chants_node_presave($node) {
+  ci_master_chants_populate($node);
+}
+
+/**
+ * Builds the administrator's explicit backfill confirmation.
+ */
+function ci_master_chants_backfill_form($form, &$form_state) {
+  if (!ci_master_chants_fields_ready()) {
+    $form['message'] = array('#markup' => t('The master_chant content type must have stored text fields named field_full_text and field_incipit.'));
+    return $form;
+  }
+  return confirm_form($form,
+    t('Generate missing chant incipits?'),
+    'admin/content',
+    t('This batch checks all master chants, including unpublished chants. It fills only blank incipits with available full text. Existing nonblank incipits, node timestamps, and revision history are preserved.'),
+    t('Backfill missing incipits'));
+}
+
+/**
+ * Starts the bounded batch operation after Form API confirmation.
+ */
+function ci_master_chants_backfill_form_submit($form, &$form_state) {
+  batch_set(array(
+    'title' => t('Generating missing chant incipits'),
+    'operations' => array(array('ci_master_chants_backfill_batch', array())),
+    'finished' => 'ci_master_chants_backfill_finished',
+  ));
+  $form_state['redirect'] = 'admin/content/ci-master-chants';
+}
+
+/**
+ * Scans a stable ID range without holding all node IDs in memory.
+ */
+function ci_master_chants_backfill_batch(&$context) {
+  if (!ci_master_chants_fields_ready()) {
+    throw new Exception('The required master chant text fields are missing.');
+  }
+  if (!isset($context['sandbox']['last_nid'])) {
+    $query = db_select('node', 'n')->condition('type', 'master_chant');
+    $query->addExpression('MAX(n.nid)', 'maximum');
+    $maximum = (int) $query->execute()->fetchField();
+    $total = db_select('node', 'n')->condition('type', 'master_chant')->condition('nid', $maximum, '<=')->countQuery()->execute()->fetchField();
+    $context['sandbox'] = array('last_nid' => 0, 'maximum' => $maximum, 'total' => (int) $total, 'processed' => 0);
+    $context['results'] = array('updated' => 0, 'checked' => 0);
+  }
+  $sandbox = &$context['sandbox'];
+  $nids = db_select('node', 'n')->fields('n', array('nid'))
+    ->condition('type', 'master_chant')
+    ->condition('nid', $sandbox['last_nid'], '>')
+    ->condition('nid', $sandbox['maximum'], '<=')
+    ->orderBy('nid')->range(0, 25)->execute()->fetchCol();
+  foreach ($nids as $nid) {
+    // Bypass the request's entity cache and recheck blanks immediately before use.
+    $node = node_load($nid, NULL, TRUE);
+    if ($node && ci_master_chants_populate($node, TRUE)) {
+      // Field API leaves absent fields untouched. Save only the incipit on the
+      // current revision, avoiding node-save side effects and timestamp changes.
+      $update = clone $node;
+      foreach (field_info_instances('node', 'master_chant') as $name => $instance) {
+        if ($name !== 'field_incipit') {
+          unset($update->$name);
+        }
+      }
+      field_attach_update('node', $update);
+      entity_get_controller('node')->resetCache(array($nid));
+      $context['results']['updated']++;
+    }
+    $sandbox['last_nid'] = (int) $nid;
+    $sandbox['processed']++;
+    $context['results']['checked']++;
+  }
+  $context['message'] = t('Checked @checked chants; filled incipits on @updated chants.', array('@checked' => $context['results']['checked'], '@updated' => $context['results']['updated']));
+  $context['finished'] = count($nids) < 25 ? 1 : min(0.99, $sandbox['processed'] / max(1, $sandbox['total']));
+}
+
+/**
+ * Reports results and invalidates Views caches after the batch.
+ */
+function ci_master_chants_backfill_finished($success, $results, $operations) {
+  // Sorting views may have cached the formerly blank values, also after a
+  // partially completed batch. No node-save hook runs during this operation.
+  if (module_exists('views')) {
+    cache('views')->flush();
+    cache('views_data')->flush();
+  }
+  cache('page')->flush();
+  cache('layout_path')->flush();
+  if ($success) {
+    backdrop_set_message(t('Checked @checked chants and filled missing incipits on @updated chants.', array('@checked' => $results['checked'], '@updated' => $results['updated'])));
+  }
+  else {
+    backdrop_set_message(t('The incipit backfill stopped before completion. You can run it again; nonblank incipits will be preserved.'), 'error');
+  }
+}
