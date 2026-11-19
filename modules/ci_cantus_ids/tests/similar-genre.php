@@ -77,7 +77,7 @@ $parents = array(1 => (object) array(
 $merged_checks = 0;
 $cases = 0;
 
-// Preview uses the form-level validators in Backdrop core.
+// Keep the core node validator, which dispatches hook_node_validate().
 $form = array(
   '#validate' => array('node_form_validate'),
   'actions' => array('preview' => array('#submit' => array('node_form_preview'))),
@@ -85,6 +85,7 @@ $form = array(
 $state = array();
 ci_cantus_ids_form_alter($form, $state, 'master_chant_node_form');
 check(in_array('ci_cantus_ids_master_chant_validate', $form['#validate']), 'Preview must inherit the custom validator.');
+check(in_array('node_form_validate', $form['#validate']), 'The core node validator must remain registered.');
 check(!isset($form['actions']['preview']['#validate']), 'Preview must not override the form validators.');
 
 // Cover native taxonomy fields, entity references, and mixed configurations.
@@ -101,6 +102,7 @@ foreach (array('tid', 'target_id') as $parent_key) {
           'field_similar_chant_id' => array('und' => array(array('value' => ' 005138 '))),
           'field_genre' => array('und' => array(array($submitted_key => (string) $genre))),
         ));
+        ci_cantus_ids_node_validate((object) $state['values'], array(), $state);
         ci_cantus_ids_master_chant_validate(array(), $state);
         check(isset($errors['field_similar_chant_id']) === $reject, 'Incorrect genre validation result.');
         if ($reject) {
@@ -123,11 +125,43 @@ foreach (array(
   $errors = array();
   $state = array('values' => $fields + array(
     'title' => '',
+    'type' => 'master_chant',
     'field_genre' => array('und' => array(array('target_id' => 20))),
   ));
+  ci_cantus_ids_node_validate((object) $state['values'], array(), $state);
   ci_cantus_ids_master_chant_validate(array(), $state);
   check(!$errors, 'Optional or unrelated references must not trigger a genre error.');
   $cases++;
 }
+
+// Regression using the exact field structure from node/124452/devel.
+$parents[1]->field_genre = array('und' => array(array('target_id' => '122')));
+$chant = (object) array(
+  'nid' => '124452',
+  'type' => 'master_chant',
+  'langcode' => 'und',
+  'title' => '005138.1',
+  'field_genre' => array('und' => array(array('target_id' => '156'))),
+  'field_similar_chant_id' => array('und' => array(array(
+    'value' => '005138', 'format' => NULL, 'safe_value' => '005138',
+  ))),
+);
+$errors = array();
+$state = array('node' => $chant);
+ci_cantus_ids_node_validate($chant, array(), $state);
+check(isset($errors['field_similar_chant_id']), '005138.1 (R) must reject Similar chant 005138 (A).');
+$cases++;
+
+// Matching genres pass; the rule does not apply to other content types.
+$errors = array();
+$chant->field_genre['und'][0]['target_id'] = '122';
+ci_cantus_ids_node_validate($chant, array(), $state);
+check(!$errors, 'The actual node must pass after changing R to A.');
+$cases++;
+$chant->type = 'suggestion';
+$chant->field_genre['und'][0]['target_id'] = '156';
+ci_cantus_ids_node_validate($chant, array(), $state);
+check(!$errors, 'Other content types must not be validated as master chants.');
+$cases++;
 
 echo "Passed $cases Similar chant genre validation checks.\n";
