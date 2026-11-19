@@ -84,7 +84,9 @@ function ci_cantus_ids_similar_chant_validate($form, &$form_state) {
   $similar = field_get_items('node', $chant, 'field_similar_chant_id');
   $genre = field_get_items('node', $chant, 'field_genre');
 
-  if (empty($similar[0]['value']) || empty($genre[0]['target_id'])) {
+  // Taxonomy term references use tid; entity references use target_id.
+  $genre_id = ci_cantus_ids_genre_id($genre);
+  if (empty($similar[0]['value']) || !$genre_id) {
     return;
   }
 
@@ -107,13 +109,23 @@ function ci_cantus_ids_similar_chant_validate($form, &$form_state) {
   }
 
   $parent_genre = field_get_items('node', $parent, 'field_genre');
-  if (!empty($parent_genre[0]['target_id']) &&
-      (int) $genre[0]['target_id'] !== (int) $parent_genre[0]['target_id']) {
+  $parent_genre_id = ci_cantus_ids_genre_id($parent_genre);
+  if ($parent_genre_id && $genre_id !== $parent_genre_id) {
     form_set_error(
       'field_similar_chant_id',
       t('The genre must match the genre of Similar chant @cid. Change the genre or select a different Similar chant.', array('@cid' => $similar_id))
     );
   }
+}
+
+/**
+ * Gets the term ID from a taxonomy or entity reference genre field.
+ */
+function ci_cantus_ids_genre_id($items) {
+  if (!empty($items[0]['tid'])) {
+    return (int) $items[0]['tid'];
+  }
+  return !empty($items[0]['target_id']) ? (int) $items[0]['target_id'] : NULL;
 }
 
 /**
