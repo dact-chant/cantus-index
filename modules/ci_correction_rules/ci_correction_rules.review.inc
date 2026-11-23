@@ -59,10 +59,11 @@ function ci_correction_rules_review_page() {
 
   foreach ($page_rules as $rule) {
     $rule_nid = (int) $rule['nid'];
+    $display = ci_correction_rules_display_rule($rule);
     $rule_rows[] = array(
       l($rule['title'], 'node/' . (int) $rule['nid']),
-      check_plain($rule['old']),
-      check_plain($rule['new']),
+      check_plain($display['old']),
+      check_plain($display['new']),
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
       nl2br(check_plain($rule['exceptions'])),
       isset($applied_counts[$rule_nid]) ? $applied_counts[$rule_nid] : 0,
@@ -437,7 +438,8 @@ function ci_correction_rules_audit_results($word, $chant_id, $page = 0) {
     $chant = node_load((int) $record->nid);
     $chant_link = $chant ? l($chant->title, 'node/' . $chant->nid) : t('Missing node @nid', array('@nid' => $record->nid));
     $rule = !empty($record->rule_nid) ? node_load((int) $record->rule_nid) : FALSE;
-    $rule_link = $rule ? l($rule->title, 'node/' . (int) $rule->nid) : t('Unlinked legacy record');
+    $rule_data = $rule ? ci_correction_rules_get_rule($rule) : NULL;
+    $rule_link = $rule ? l($rule_data['title'], 'node/' . (int) $rule->nid) : t('Unlinked legacy record');
     $account = !empty($record->applied_uid) ? user_load((int) $record->applied_uid) : FALSE;
     $rows[] = array(
       (int) $record->id,
@@ -755,8 +757,24 @@ function ci_correction_rules_backfill_rule_nids() {
  * Adds applied and current suggested changes below a correction-rule node.
  */
 function ci_correction_rules_node_view($node, $view_mode, $langcode) {
-  if ($node->type !== 'ci_correction_rule' || $view_mode !== 'full'
-    || !ci_correction_rules_manage_access()) {
+  if ($node->type !== 'ci_correction_rule') {
+    return;
+  }
+
+  $rule = ci_correction_rules_get_rule($node);
+  $display = ci_correction_rules_display_rule($rule);
+  if ($rule['match_type'] === 'prefix') {
+    foreach (array('field_ci_rule_find' => 'old', 'field_ci_rule_replace' => 'new') as $field_name => $key) {
+      if (isset($node->content[$field_name][0])) {
+        $node->content[$field_name][0]['#markup'] = check_plain($display[$key]);
+      }
+    }
+    if ($view_mode === 'full' && node_is_page($node)) {
+      backdrop_set_title($display['title']);
+    }
+  }
+
+  if ($view_mode !== 'full' || !ci_correction_rules_manage_access()) {
     return;
   }
 

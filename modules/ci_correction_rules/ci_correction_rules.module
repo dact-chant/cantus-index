@@ -349,7 +349,7 @@ function ci_correction_rules_admin_page() {
       'prefix' => t('Prefix'),
     );
     $rows[] = array(
-      l($node->title, 'node/' . (int) $node->nid),
+      l($rule['title'], 'node/' . (int) $node->nid),
       isset($category_labels[$rule['category']]) ? $category_labels[$rule['category']] : '',
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
       isset($applied_counts[$node->nid]) ? $applied_counts[$node->nid] : 0,
@@ -394,7 +394,34 @@ function ci_correction_rules_get_rule($node) {
     $items = field_get_items('node', $node, $field_name);
     $rule[$key] = $items ? $items[0]['value'] : '';
   }
+  $display = ci_correction_rules_display_rule($rule);
+  $rule['title'] = $display['title'];
   return $rule;
+}
+
+/**
+ * Formats prefix notation for display without changing the matching values.
+ */
+function ci_correction_rules_display_rule($rule) {
+  if (isset($rule['match_type']) && $rule['match_type'] === 'prefix') {
+    foreach (array('old', 'new') as $key) {
+      if ($rule[$key] !== '' && substr($rule[$key], -1) !== '-') {
+        $rule[$key] .= '-';
+      }
+    }
+    $rule['title'] = $rule['old'] . ' → ' . $rule['new'];
+  }
+  return $rule;
+}
+
+/**
+ * Implements hook_preprocess_node().
+ */
+function ci_correction_rules_preprocess_node(&$variables) {
+  if ($variables['node']->type === 'ci_correction_rule') {
+    $rule = ci_correction_rules_get_rule($variables['node']);
+    $variables['title'] = check_plain($rule['title']);
+  }
 }
 
 /**
