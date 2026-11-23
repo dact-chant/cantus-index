@@ -32,6 +32,24 @@ function ci_correction_rules_update_1000() {
 }
 
 /**
+ * Adds usage notes, review status, and documents prefix exceptions.
+ */
+function ci_correction_rules_update_1001() {
+  ci_correction_rules_install_content_type();
+  $instance = field_info_instance('node', 'field_ci_rule_exceptions', 'ci_correction_rule');
+  $instance['description'] = ci_correction_rules_exceptions_description();
+  field_update_instance($instance);
+  return t('Added Usage notes and Review status (default: Approved). Exceptions now support a trailing hyphen for prefix matching. Existing rule IDs, publication states, and correction history are preserved.');
+}
+
+/**
+ * Returns the help text shared by fresh installs and updates.
+ */
+function ci_correction_rules_exceptions_description() {
+  return 'Enter one exception per line, regardless of letter case. A trailing hyphen marks a prefix (cel- excludes words beginning with cel). Without a trailing hyphen, a word containing the exception is excluded.';
+}
+
+/**
  * Returns the schema used for the durable correction audit log.
  */
 function ci_correction_rules_audit_schema() {
@@ -211,7 +229,30 @@ function ci_correction_rules_install_content_type() {
       'formatter' => 'text_default',
       'required' => FALSE,
       'settings' => array(),
-      'description' => 'Enter one literal exception per line. A word containing an exception is excluded, regardless of letter case.',
+      'description' => ci_correction_rules_exceptions_description(),
+    ),
+    'field_ci_rule_usage_notes' => array(
+      'label' => 'Usage notes',
+      'type' => 'text_long',
+      'widget' => 'text_textarea',
+      'formatter' => 'text_default',
+      'required' => FALSE,
+      'settings' => array(),
+      'description' => 'Usage conditions, meanings to ignore, editorial notes, and sources. These notes do not automatically exclude words; use Exceptions for automatic exclusions.',
+    ),
+    'field_ci_rule_review_status' => array(
+      'label' => 'Review status',
+      'type' => 'list_text',
+      'widget' => 'options_select',
+      'formatter' => 'list_default',
+      'required' => TRUE,
+      'settings' => array('allowed_values' => array(
+        'approved' => 'Approved',
+        'needs_review' => 'Needs review',
+        'context_required' => 'Context required',
+      )),
+      'default_value' => array(array('value' => 'approved')),
+      'description' => 'Editorial review status. Published separately controls whether the rule is active.',
     ),
   );
 
@@ -235,6 +276,7 @@ function ci_correction_rules_install_content_type() {
         'label' => $definition['label'],
         'description' => $definition['description'],
         'required' => $definition['required'],
+        'default_value' => isset($definition['default_value']) ? $definition['default_value'] : NULL,
         'settings' => array('text_processing' => 0),
         'widget' => array('type' => $definition['widget'], 'weight' => $weight),
         'display' => array('default' => array(
@@ -294,6 +336,7 @@ function ci_correction_rules_import_legacy_rules() {
         'field_ci_rule_replace' => $rule['replace'],
         'field_ci_rule_match_type' => $rule['match_type'],
         'field_ci_rule_exceptions' => isset($rule['exceptions']) ? $rule['exceptions'] : '',
+        'field_ci_rule_review_status' => 'approved',
       );
       foreach ($values as $field_name => $value) {
         $node->{$field_name}[LANGUAGE_NONE][0]['value'] = $value;

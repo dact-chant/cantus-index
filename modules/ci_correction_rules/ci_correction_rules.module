@@ -303,9 +303,17 @@ function ci_correction_rules_node_presave($node) {
  * Lists correction rules for the administration page.
  */
 function ci_correction_rules_admin_page() {
+  $review_labels = ci_correction_rules_review_status_labels();
+  $review_filter = isset($_GET['review_status']) && is_string($_GET['review_status'])
+    && isset($review_labels[$_GET['review_status']]) ? $_GET['review_status'] : '';
   $query = db_select('node', 'n')
     ->fields('n', array('nid'));
   $query->leftJoin('field_data_field_ci_rule_find', 'f', "f.entity_id = n.nid AND f.entity_type = 'node' AND f.bundle = 'ci_correction_rule' AND f.deleted = 0 AND f.delta = 0");
+  if ($review_filter !== '' && field_info_field('field_ci_rule_review_status')) {
+    $query->leftJoin('field_data_field_ci_rule_review_status', 'rs', "rs.entity_id = n.nid AND rs.entity_type = 'node' AND rs.bundle = 'ci_correction_rule' AND rs.deleted = 0 AND rs.delta = 0");
+    // Rules created before this field existed retain the default Approved state.
+    $query->where("COALESCE(NULLIF(rs.field_ci_rule_review_status_value, ''), 'approved') = :ci_review_status", array(':ci_review_status' => $review_filter));
+  }
   $query
     ->condition('n.type', 'ci_correction_rule')
     ->orderBy('f.field_ci_rule_find_value', 'ASC')
@@ -352,6 +360,7 @@ function ci_correction_rules_admin_page() {
       l($rule['title'], 'node/' . (int) $node->nid),
       isset($category_labels[$rule['category']]) ? $category_labels[$rule['category']] : '',
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
+      isset($review_labels[$rule['review_status']]) ? $review_labels[$rule['review_status']] : '',
       isset($applied_counts[$node->nid]) ? $applied_counts[$node->nid] : 0,
       $node->status ? t('Published') : t('Unpublished'),
       implode(' | ', $operations),
@@ -361,12 +370,24 @@ function ci_correction_rules_admin_page() {
   $build['add'] = array(
     '#markup' => '<p>' . l(t('Add a correction rule'), 'correction-tools/rules/add') . '</p>',
   );
+  $filter = '<form method="get" action="' . check_url(url('correction-tools/rules')) . '">'
+    . '<label for="ci-rule-review-status">' . check_plain(t('Review status')) . '</label> '
+    . '<select id="ci-rule-review-status" name="review_status">'
+    . '<option value="">' . check_plain(t('All review statuses')) . '</option>';
+  foreach ($review_labels as $value => $label) {
+    $filter .= '<option value="' . check_plain($value) . '"'
+      . ($review_filter === $value ? ' selected="selected"' : '') . '>' . check_plain($label) . '</option>';
+  }
+  $filter .= '</select> <button type="submit">' . check_plain(t('Filter')) . '</button> '
+    . l(t('Clear filters'), 'correction-tools/rules') . '</form>';
+  $build['filters'] = array('#markup' => $filter);
   $build['rules'] = array(
     '#theme' => 'table',
     '#header' => array(
       t('Find → Replace with'),
       t('Category'),
       t('Match type'),
+      t('Review status'),
       t('Applied changes'),
       t('Status'),
       t('Operations'),
@@ -389,14 +410,30 @@ function ci_correction_rules_get_rule($node) {
     'new' => 'field_ci_rule_replace',
     'match_type' => 'field_ci_rule_match_type',
     'exceptions' => 'field_ci_rule_exceptions',
+    'usage_notes' => 'field_ci_rule_usage_notes',
+    'review_status' => 'field_ci_rule_review_status',
   );
   foreach ($fields as $key => $field_name) {
     $items = field_get_items('node', $node, $field_name);
     $rule[$key] = $items ? $items[0]['value'] : '';
   }
+  if ($rule['review_status'] === '') {
+    $rule['review_status'] = 'approved';
+  }
   $display = ci_correction_rules_display_rule($rule);
   $rule['title'] = $display['title'];
   return $rule;
+}
+
+/**
+ * Returns editorial review labels; publication remains an independent setting.
+ */
+function ci_correction_rules_review_status_labels() {
+  return array(
+    'approved' => t('Approved'),
+    'needs_review' => t('Needs review'),
+    'context_required' => t('Context required'),
+  );
 }
 
 /**
@@ -468,7 +505,17 @@ function ci_correction_rules_apply($word, $rule) {
   $exceptions = isset($rule['exceptions']) ? $rule['exceptions'] : '';
   foreach (preg_split('/\r\n|\r|\n/', $exceptions) as $exception) {
     $exception = trim($exception);
-    if ($exception !== '' && mb_stripos($word, $exception, 0, 'UTF-8') !== FALSE) {
+    if ($exception === '') {
+      continue;
+    }
+    $prefix = substr($exception, -1) === '-';
+    $literal = $prefix ? substr($exception, 0, -1) : $exception;
+    // A lone hyphen is not a prefix and must not exclude every word.
+    if ($literal === '') {
+      continue;
+    }
+    $position = mb_stripos($word, $literal, 0, 'UTF-8');
+    if (($prefix && $position === 0) || (!$prefix && $position !== FALSE)) {
       return $word;
     }
   }

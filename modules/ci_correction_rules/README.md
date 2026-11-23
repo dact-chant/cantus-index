@@ -34,6 +34,23 @@ Whole-word, part-of-word, and prefix matching are literal and
 case-insensitive. Spelling replacements preserve initial capitalization and
 all-capital words. Capitalization rules use the replacement exactly as entered.
 Exceptions exclude a word if it contains any exception, regardless of case.
+An exception ending in `-` instead matches only the beginning of a word:
+`cel-` excludes `Celare`, but not a word with `cel` only in the middle.
+Enter one exception per line; the final hyphen is notation, not a literal match.
+
+Rules also have **Usage notes** (plain text for meanings, conditions, sources,
+and editorial comments) and **Review status**: Approved, Needs review, or Context
+required. New rules default to Approved. Usage notes and review status appear
+in correction review; the rule overview can be filtered by review status.
+These are editorial metadata: Published still determines whether a rule is
+active, and only Exceptions automatically exclude matching words.
+
+For existing sites, deploy the updated module and run Backdrop's `update.php`
+(update `ci_correction_rules_update_1001`), then rebuild caches. The update adds
+the two field instances and refreshes Exceptions help without saving or
+republishing existing rule nodes or changing correction history. Existing rules
+without a stored review status are displayed and filtered as Approved; the
+field default is stored when the rule is subsequently edited and saved.
 
 The review page scans the current Cantus Index `master_chant` full texts using
 published Spelling rules. Selecting a chant applies the exact displayed word

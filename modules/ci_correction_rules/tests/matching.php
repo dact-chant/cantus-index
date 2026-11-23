@@ -43,6 +43,15 @@ $cases = array(
   array('acb', 'acb', array('old' => 'a.b', 'new' => 'x')),
   array('eius', 'eius', array('old' => '')),
   array('eius', 'eius', array('match_type' => 'unsupported')),
+  array('eiusdem', 'eiusdem', array('match_type' => 'prefix', 'exceptions' => 'eius-')),
+  array('Eiusdem', 'Eiusdem', array('match_type' => 'prefix', 'exceptions' => ' EIUS- ')),
+  array('Pompeius', 'Pompejus', array('match_type' => 'part_of_word', 'exceptions' => 'eius-')),
+  array('Pompeius', 'Pompeius', array('match_type' => 'part_of_word', 'exceptions' => 'eius')),
+  array('eius', 'eius', array('exceptions' => 'eius-')),
+  array('eius', 'ejus', array('exceptions' => '-')),
+  array('eiusdem', 'eiusdem', array('match_type' => 'prefix', 'exceptions' => "unused\r\nEIUS-\r\n")),
+  array('āmen', 'āmen', array('old' => 'āmen', 'new' => 'amen', 'exceptions' => 'Ā-')),
+  array('eius', 'ejus', array('exceptions' => 'e.us-')),
 );
 
 foreach ($cases as $index => $case) {

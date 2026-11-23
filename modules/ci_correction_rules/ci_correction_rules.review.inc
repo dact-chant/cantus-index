@@ -56,6 +56,7 @@ function ci_correction_rules_review_page() {
     'part_of_word' => t('Part of word'),
     'prefix' => t('Prefix'),
   );
+  $review_labels = ci_correction_rules_review_status_labels();
 
   foreach ($page_rules as $rule) {
     $rule_nid = (int) $rule['nid'];
@@ -66,6 +67,8 @@ function ci_correction_rules_review_page() {
       check_plain($display['new']),
       isset($match_labels[$rule['match_type']]) ? $match_labels[$rule['match_type']] : '',
       nl2br(check_plain($rule['exceptions'])),
+      nl2br(check_plain($rule['usage_notes'])),
+      isset($review_labels[$rule['review_status']]) ? $review_labels[$rule['review_status']] : '',
       isset($applied_counts[$rule_nid]) ? $applied_counts[$rule_nid] : 0,
       0,
     );
@@ -110,7 +113,7 @@ function ci_correction_rules_review_page() {
   }
 
   foreach ($pending_chants as $rule_nid => $chants) {
-    $rule_rows[$rule_row_indexes[$rule_nid]][6] = count($chants);
+    $rule_rows[$rule_row_indexes[$rule_nid]][8] = count($chants);
   }
 
   $navigation = array();
@@ -128,7 +131,7 @@ function ci_correction_rules_review_page() {
   );
   $build['rules'] = array(
     '#theme' => 'table',
-    '#header' => array(t('Correction rule'), t('Find'), t('Replace with'), t('Match type'), t('Exceptions'), t('Applied'), t('Pending')),
+    '#header' => array(t('Correction rule'), t('Find'), t('Replace with'), t('Match type'), t('Exceptions'), t('Usage notes'), t('Review status'), t('Applied'), t('Pending')),
     '#rows' => $rule_rows,
   );
   $build['navigation_top'] = array('#markup' => '<p>' . implode(' | ', $navigation) . '</p>');
