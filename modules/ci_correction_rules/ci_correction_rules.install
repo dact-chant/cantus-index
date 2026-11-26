@@ -11,6 +11,7 @@
 function ci_correction_rules_install() {
   ci_correction_rules_install_content_type();
   ci_correction_rules_ensure_audit_table();
+  ci_correction_rules_ensure_rejection_table();
   $result = ci_correction_rules_import_legacy_rules();
   ci_correction_rules_backfill_rule_nids();
   watchdog('ci_correction_rules', 'Imported @created legacy correction rules; skipped @skipped duplicates.', array(
@@ -47,6 +48,102 @@ function ci_correction_rules_update_1001() {
  */
 function ci_correction_rules_exceptions_description() {
   return 'Enter one exception per line, regardless of letter case. A trailing hyphen marks a prefix (cel- excludes words beginning with cel). Without a trailing hyphen, a word containing the exception is excluded.';
+}
+
+/**
+ * Creates storage for human rejections of rule matches in a specific chant.
+ */
+function ci_correction_rules_update_1002() {
+  ci_correction_rules_ensure_rejection_table();
+  return t('Prepared storage for context-specific rejected correction suggestions.');
+}
+
+/**
+ * Returns the schema for context-specific rejected correction suggestions.
+ */
+function ci_correction_rules_rejection_schema() {
+  return array(
+    'description' => 'Human decisions that a correction rule does not apply to a specific chant and word.',
+    'fields' => array(
+      'id' => array(
+        'description' => 'Local rejection record ID.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'rule_nid' => array(
+        'description' => 'Correction rule node ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'description' => 'Cantus Index chant node ID.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'misspelled_word' => array(
+        'description' => 'Exact word proposed for correction.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'correct_word' => array(
+        'description' => 'Replacement proposed by the rule.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'rule_signature' => array(
+        'description' => 'Hash of the rule definition when the rejection was recorded.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'exception_hash' => array(
+        'description' => 'Unique key for this rule, chant, word, replacement, and rule definition.',
+        'type' => 'varchar',
+        'length' => 64,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'rejected_uid' => array(
+        'description' => 'User ID who rejected the suggestion.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'rejected_at' => array(
+        'description' => 'Unix timestamp when the suggestion was rejected.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('id'),
+    'unique keys' => array(
+      'exception_hash' => array('exception_hash'),
+    ),
+    'indexes' => array(
+      'rule_nid' => array('rule_nid'),
+      'nid' => array('nid'),
+    ),
+  );
+}
+
+/**
+ * Creates the rejected-suggestion table when it does not already exist.
+ */
+function ci_correction_rules_ensure_rejection_table() {
+  if (!db_table_exists('ci_correction_rule_rejections')) {
+    db_create_table('ci_correction_rule_rejections', ci_correction_rules_rejection_schema());
+  }
 }
 
 /**

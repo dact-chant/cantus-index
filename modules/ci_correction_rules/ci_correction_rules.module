@@ -462,6 +462,109 @@ function ci_correction_rules_preprocess_node(&$variables) {
 }
 
 /**
+ * Creates a stable signature for the current definition of a correction rule.
+ *
+ * A rejection applies only while the rule has this same definition. Editing
+ * the rule therefore makes previously rejected suggestions eligible for
+ * review again without deleting their audit records.
+ */
+function ci_correction_rules_rule_signature($rule) {
+  $definition = array(
+    'category' => isset($rule['category']) ? (string) $rule['category'] : '',
+    'find' => isset($rule['old']) ? (string) $rule['old'] : '',
+    'replace' => isset($rule['new']) ? (string) $rule['new'] : '',
+    'match_type' => isset($rule['match_type']) ? (string) $rule['match_type'] : '',
+    'exceptions' => isset($rule['exceptions']) ? (string) $rule['exceptions'] : '',
+  );
+  return hash('sha256', serialize($definition));
+}
+
+/**
+ * Builds the unique key for rejecting one rule match in one chant.
+ */
+function ci_correction_rules_rejection_hash($nid, $rule, $misspelled_word, $correct_word) {
+  $key = array(
+    'rule_nid' => isset($rule['nid']) ? (int) $rule['nid'] : 0,
+    'nid' => (int) $nid,
+    'misspelled_word' => (string) $misspelled_word,
+    'correct_word' => (string) $correct_word,
+    'rule_signature' => ci_correction_rules_rule_signature($rule),
+  );
+  return hash('sha256', serialize($key));
+}
+
+/**
+ * Records that a reviewer rejected one proposed rule match in one chant.
+ *
+ * This is a chant-specific decision; it does not add a global rule exception.
+ */
+function ci_correction_rules_record_rejection($nid, $rule, $misspelled_word, $correct_word, $uid = NULL, $timestamp = NULL) {
+  global $user;
+
+  $nid = (int) $nid;
+  $rule_nid = isset($rule['nid']) ? (int) $rule['nid'] : 0;
+  $misspelled_word = trim((string) $misspelled_word);
+  $correct_word = trim((string) $correct_word);
+  if (!$nid || !$rule_nid || $misspelled_word === '' || !db_table_exists('ci_correction_rule_rejections')) {
+    return FALSE;
+  }
+
+  $uid = $uid === NULL ? (isset($user->uid) ? (int) $user->uid : 0) : (int) $uid;
+  $timestamp = $timestamp === NULL ? REQUEST_TIME : (int) $timestamp;
+  $rule_signature = ci_correction_rules_rule_signature($rule);
+  $exception_hash = ci_correction_rules_rejection_hash($nid, $rule, $misspelled_word, $correct_word);
+
+  db_merge('ci_correction_rule_rejections')
+    ->key(array('exception_hash' => $exception_hash))
+    ->insertFields(array(
+      'rule_nid' => $rule_nid,
+      'nid' => $nid,
+      'misspelled_word' => $misspelled_word,
+      'correct_word' => $correct_word,
+      'rule_signature' => $rule_signature,
+      'exception_hash' => $exception_hash,
+      'rejected_uid' => $uid,
+      'rejected_at' => $timestamp,
+    ))
+    ->updateFields(array(
+      'rejected_uid' => $uid,
+      'rejected_at' => $timestamp,
+    ))
+    ->execute();
+
+  return TRUE;
+}
+
+/**
+ * Checks whether a reviewer rejected this exact rule match in this chant.
+ */
+function ci_correction_rules_rejection_exists($nid, $rule, $misspelled_word, $correct_word) {
+  if (!db_table_exists('ci_correction_rule_rejections')) {
+    return FALSE;
+  }
+
+  $exception_hash = ci_correction_rules_rejection_hash($nid, $rule, $misspelled_word, $correct_word);
+  return (bool) db_query(
+    'SELECT 1 FROM {ci_correction_rule_rejections} WHERE exception_hash = :exception_hash',
+    array(':exception_hash' => $exception_hash)
+  )->fetchField();
+}
+
+/**
+ * Removes the reviewer rejection so a suggestion can be reviewed again.
+ */
+function ci_correction_rules_clear_rejection($nid, $rule, $misspelled_word, $correct_word) {
+  if (!db_table_exists('ci_correction_rule_rejections')) {
+    return 0;
+  }
+
+  $exception_hash = ci_correction_rules_rejection_hash($nid, $rule, $misspelled_word, $correct_word);
+  return db_delete('ci_correction_rule_rejections')
+    ->condition('exception_hash', $exception_hash)
+    ->execute();
+}
+
+/**
  * Loads correction rule nodes, ordered by node ID.
  *
  * This function intentionally includes published rules regardless of the
