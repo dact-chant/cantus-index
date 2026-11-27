@@ -74,6 +74,13 @@ rule definition remains unchanged. If the rule is edited later, its changed
 definition makes the suggestion eligible for review again. The confirmation
 page shows the full chant text and highlights the exact word being excluded.
 
+The module also provides a **Spelling review notes** block for manual placement
+in the Backdrop layout. It only renders on `master_chant` nodes and lists any
+chant-specific suggestions confirmed as not applicable, with the correction
+rule, reviewer, and date. It does not claim that the rest of the chant was
+reviewed. The block is available in the block/layout administration but is not
+placed in a region by the module.
+
 Existing rows in `aa_corrections` are retained. The old `id` values are
 preserved while the column becomes auto-incrementing for new local audit rows.
 Legacy rows receive a rule link only if exactly one spelling rule matches;
