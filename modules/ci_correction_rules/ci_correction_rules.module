@@ -144,6 +144,12 @@ function ci_correction_rules_menu() {
     'access callback' => 'ci_correction_rules_manage_access',
     'type' => MENU_CALLBACK,
   );
+  $items['correction-tools/review/not-applicable'] = array(
+    'title' => 'Mark correction suggestion as not applicable',
+    'page callback' => 'ci_correction_rules_rejection_page',
+    'access callback' => 'ci_correction_rules_manage_access',
+    'type' => MENU_CALLBACK,
+  );
 
   $items['correction-tools/history'] = array(
     'title' => 'Correction history',
