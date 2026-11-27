@@ -265,8 +265,8 @@ function ci_correction_rules_landing_page() {
   }
 
   $links = array(
-    l(t('Correction rules'), 'correction-tools/rules'),
-    l(t('Review and apply corrections'), 'correction-tools/review'),
+    '<strong>' . l(t('Review and apply next rule'), 'correction-tools/review') . '</strong>',
+    l(t('All correction rules'), 'correction-tools/rules'),
     l(t('Correction history'), 'correction-tools/history'),
     l(t('CI Network Correction Suggestions'), 'correction-tools/concordance'),
     l(t('Update correction network statistics'), 'correction-tools/network-update'),
@@ -374,7 +374,8 @@ function ci_correction_rules_admin_page() {
   }
 
   $build['add'] = array(
-    '#markup' => '<p>' . l(t('Add a correction rule'), 'correction-tools/rules/add') . '</p>',
+    '#markup' => '<p>' . l(t('Review and apply next rule'), 'correction-tools/review') . '</p>'
+      . '<p>' . l(t('+ Add a correction rule'), 'correction-tools/rules/add') . '</p>',
   );
   $filter = '<form method="get" action="' . check_url(url('correction-tools/rules')) . '">'
     . '<label for="ci-rule-review-status">' . check_plain(t('Review status')) . '</label> '

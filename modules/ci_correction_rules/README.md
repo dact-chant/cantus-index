@@ -53,7 +53,14 @@ without a stored review status are displayed and filtered as Approved; the
 field default is stored when the rule is subsequently edited and saved.
 
 The review page scans the current Cantus Index `master_chant` full texts using
-published Spelling rules. Selecting a chant applies the exact displayed word
+published Spelling rules. The general review automatically opens the first rule
+with current matches that would change a word, alphabetically by Find, at a
+URL containing that rule's `rule_nid`. It displays one rule at a time. Match
+types and exceptions are checked before selection. After corrections are saved,
+the next pending rule is detected again; a partially completed rule remains
+first until its remaining matches are resolved. A direct link
+to one rule still shows that rule even when it has no remaining matches.
+Selecting a chant applies the exact displayed word
 change immediately to that chant. The node update and its audit row are saved
 in one database transaction. Each audit row stores the chant node ID, the
 correction rule node ID (`rule_nid`), the original and replacement words, the

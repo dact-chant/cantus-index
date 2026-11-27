@@ -28,3 +28,27 @@
   margin-top: 0.35em;
   text-align: right;
 }
+
+/* Keep labels and values aligned on full correction-rule pages. */
+.node-ci-correction-rule.view-mode-full .field[class*="field-name-field-ci-rule-"] {
+  display: grid;
+  grid-template-columns: 9.5em minmax(0, 1fr);
+  column-gap: 1em;
+  align-items: start;
+  margin-bottom: 0.6em;
+}
+
+.node-ci-correction-rule.view-mode-full .field > .field-label,
+.node-ci-correction-rule.view-mode-full .field > .field-items {
+  float: none;
+  margin: 0;
+  min-width: 0;
+}
+
+.node-ci-correction-rule.view-mode-full .field > .field-items {
+  overflow-wrap: anywhere;
+}
+
+.ci-correction-rule-navigation {
+  margin-bottom: 1.25em;
+}
