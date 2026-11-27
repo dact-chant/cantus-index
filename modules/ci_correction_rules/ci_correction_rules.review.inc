@@ -1211,6 +1211,72 @@ function ci_correction_rules_rule_changes_block($node) {
     );
   }
 
+  if (!db_table_exists('ci_correction_rule_rejections')) {
+    $build['rejections_title'] = array(
+      '#markup' => '<h3>' . t('Not applicable here (0)') . '</h3>',
+    );
+    $build['rejections_unavailable'] = array(
+      '#markup' => '<p>' . t('Not applicable records are not available yet.') . '</p>',
+    );
+    return $build;
+  }
+
+  $rejection_total = (int) db_query(
+    'SELECT COUNT(*) FROM {ci_correction_rule_rejections} WHERE rule_nid = :rule_nid',
+    array(':rule_nid' => (int) $node->nid)
+  )->fetchField();
+  $build['rejections_title'] = array(
+    '#markup' => '<h3>' . t('Not applicable here (@count)', array('@count' => $rejection_total)) . '</h3>',
+  );
+  $rejection_offset = pager_default_initialize($rejection_total, 50);
+  $rejection_query = db_select('ci_correction_rule_rejections', 'r')
+    ->fields('r', array('nid', 'misspelled_word', 'correct_word', 'rule_signature', 'rejected_uid', 'rejected_at'))
+    ->condition('r.rule_nid', (int) $node->nid)
+    ->orderBy('r.rejected_at', 'DESC')
+    ->orderBy('r.id', 'DESC')
+    ->range($rejection_offset, 50);
+  $rejection_rows = array();
+  $current_signature = ci_correction_rules_rule_signature($rule);
+  foreach ($rejection_query->execute() as $record) {
+    $chant = node_load((int) $record->nid);
+    $chant_link = $chant
+      ? l($chant->title, 'node/' . (int) $chant->nid)
+      : t('Missing chant @nid', array('@nid' => (int) $record->nid));
+    $full_text = $chant ? ci_correction_rules_get_full_text($chant) : FALSE;
+    if ($full_text !== FALSE) {
+      $pattern = ci_correction_rules_word_pattern($record->misspelled_word);
+      $highlighted_text = preg_replace_callback($pattern, function ($matches) {
+        return '<strong>' . check_plain($matches[0]) . '</strong>';
+      }, check_plain($full_text));
+      $text_cell = $highlighted_text === NULL ? check_plain($full_text) : $highlighted_text;
+    }
+    else {
+      $text_cell = $chant ? t('Full text is unavailable.') : t('Chant no longer exists.');
+    }
+    $account = !empty($record->rejected_uid) ? user_load((int) $record->rejected_uid) : FALSE;
+    $rule_version = $record->rule_signature === $current_signature
+      ? t('Current rule definition')
+      : t('Previous rule definition');
+    $rejection_rows[] = array(
+      $chant_link,
+      array('data' => $text_cell, 'class' => array('ci-correction-rule-rejection-text')),
+      check_plain($record->misspelled_word),
+      check_plain($record->correct_word),
+      !empty($record->rejected_at) ? format_date((int) $record->rejected_at, 'short') : '-',
+      $account ? check_plain($account->name) : '-',
+      $rule_version,
+    );
+  }
+  $build['rejections_table'] = array(
+    '#theme' => 'table',
+    '#header' => array(t('Cantus chant'), t('Full text'), t('Word not changed'), t('Suggested word'), t('Marked at'), t('Marked by'), t('Rule version')),
+    '#rows' => $rejection_rows,
+    '#empty' => t('No chants have been marked as not applicable for this rule.'),
+  );
+  if ($rejection_total > 50) {
+    $build['rejections_pager'] = array('#theme' => 'pager');
+  }
+
   return $build;
 }
 
