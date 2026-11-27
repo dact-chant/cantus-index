@@ -71,7 +71,8 @@ Each proposed change in review also has a **Not applicable here** link after
 the chant full text. Confirming it stores a rejection for that exact chant,
 rule, and word change; the suggestion is then omitted from review while the
 rule definition remains unchanged. If the rule is edited later, its changed
-definition makes the suggestion eligible for review again.
+definition makes the suggestion eligible for review again. The confirmation
+page shows the full chant text and highlights the exact word being excluded.
 
 Existing rows in `aa_corrections` are retained. The old `id` values are
 preserved while the column becomes auto-incrementing for new local audit rows.

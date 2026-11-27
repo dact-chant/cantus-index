@@ -29,6 +29,20 @@
   text-align: right;
 }
 
+.ci-correction-rejection-context {
+  margin: 1em 0;
+  padding: 0.75em 1em;
+  border-left: 3px solid #777;
+  background: #f5f5f5;
+  line-height: 1.8;
+}
+
+.ci-correction-rejection-context mark {
+  padding: 0.05em 0.15em;
+  background: #ffe680;
+  color: #111;
+}
+
 /* Keep labels and values aligned on full correction-rule pages. */
 .node-ci-correction-rule.view-mode-full .field[class*="field-name-field-ci-rule-"] {
   display: grid;

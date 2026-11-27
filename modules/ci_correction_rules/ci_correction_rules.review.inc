@@ -365,10 +365,12 @@ function ci_correction_rules_rejection_page() {
  * Confirms and records that a specific correction does not apply to a chant.
  */
 function ci_correction_rules_rejection_form($form, &$form_state, $nid, $rule_nid, $old_word, $new_word) {
+  $candidate = ci_correction_rules_load_rejection_candidate($nid, $rule_nid, $old_word, $new_word);
   $form['nid'] = array('#type' => 'value', '#value' => (int) $nid);
   $form['rule_nid'] = array('#type' => 'value', '#value' => (int) $rule_nid);
   $form['old_word'] = array('#type' => 'value', '#value' => $old_word);
   $form['new_word'] = array('#type' => 'value', '#value' => $new_word);
+  $form['#attached']['css'][] = backdrop_get_path('module', 'ci_correction_rules') . '/css/ci-correction-rules.css';
   $chant = node_load((int) $nid);
   $chant_link = $chant ? l($chant->title, 'node/' . (int) $nid) : check_plain($nid);
   $form['prompt'] = array(
@@ -377,6 +379,21 @@ function ci_correction_rules_rejection_form($form, &$form_state, $nid, $rule_nid
       '@new' => $new_word,
     )) . '</p><p>' . $chant_link . '</p>',
   );
+  if ($candidate) {
+    $pattern = ci_correction_rules_word_pattern($old_word);
+    $highlighted_text = preg_replace_callback($pattern, function ($matches) {
+      return '<mark><strong>' . check_plain($matches[0]) . '</strong></mark>';
+    }, check_plain($candidate['full_text']));
+    if ($highlighted_text === NULL) {
+      $highlighted_text = check_plain($candidate['full_text']);
+    }
+    $form['context_intro'] = array(
+      '#markup' => '<p>' . t('Review the full text. The highlighted word is what this decision excludes from the rule for this chant.') . '</p>',
+    );
+    $form['context'] = array(
+      '#markup' => '<div class="ci-correction-rejection-context"><p>' . nl2br($highlighted_text) . '</p></div>',
+    );
+  }
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['confirm'] = array(
     '#type' => 'submit',
@@ -459,7 +476,7 @@ function ci_correction_rules_load_rejection_candidate($nid, $rule_nid, $old_word
   }
   foreach (ci_correction_rules_find_text_changes($full_text, $rule) as $change) {
     if ($change['old'] === $old_word && $change['new'] === $new_word) {
-      return array('chant' => $chant, 'rule' => $rule);
+      return array('chant' => $chant, 'rule' => $rule, 'full_text' => $full_text);
     }
   }
   return FALSE;
