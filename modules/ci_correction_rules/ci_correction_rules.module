@@ -88,11 +88,11 @@ function ci_correction_rules_block_view($delta = '') {
     if (!$current_definition) {
       $review_text .= '<p class="ci-correction-rules-review-version">' . t('This decision refers to a previous definition of the rule.') . '</p>';
     }
-    $items[] = array('data' => array('#markup' => $review_text));
+    $items[] = $review_text;
   }
 
   if (!$items) {
-    $items[] = array('data' => t('No correction suggestion has been marked as not applicable for this chant.'));
+    $items[] = t('No correction suggestion has been marked as not applicable for this chant.');
   }
 
   return array(
