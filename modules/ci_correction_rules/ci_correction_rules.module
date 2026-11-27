@@ -26,6 +26,86 @@ function ci_correction_rules_manage_access($account = NULL) {
 }
 
 /**
+ * Implements hook_block_info().
+ */
+function ci_correction_rules_block_info() {
+  return array(
+    'master_chant_spelling_review' => array(
+      'info' => t('Spelling review notes'),
+      'description' => t('Shows confirmed, chant-specific exceptions to correction rules on Master Chant pages.'),
+      'cache' => DRUPAL_NO_CACHE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function ci_correction_rules_block_view($delta = '') {
+  if ($delta !== 'master_chant_spelling_review') {
+    return;
+  }
+
+  $chant = menu_get_object('node');
+  if (!$chant || $chant->type !== 'master_chant'
+    || !db_table_exists('ci_correction_rule_rejections')) {
+    return;
+  }
+
+  $records = db_select('ci_correction_rule_rejections', 'r')
+    ->fields('r', array('rule_nid', 'misspelled_word', 'correct_word', 'rule_signature', 'rejected_uid', 'rejected_at'))
+    ->condition('r.nid', (int) $chant->nid)
+    ->orderBy('r.rejected_at', 'DESC')
+    ->orderBy('r.id', 'DESC')
+    ->execute();
+  $items = array();
+
+  foreach ($records as $record) {
+    $rule_node = node_load((int) $record->rule_nid);
+    if ($rule_node && $rule_node->type === 'ci_correction_rule') {
+      $rule = ci_correction_rules_get_rule($rule_node);
+      $rule_link = l($rule['title'], 'node/' . (int) $rule_node->nid);
+      $current_definition = !empty($rule_node->status)
+        && $record->rule_signature === ci_correction_rules_rule_signature($rule);
+    }
+    else {
+      $rule_link = t('Correction rule no longer available');
+      $current_definition = FALSE;
+    }
+
+    $review_text = '<p>' . t('The proposed spelling change @old → @new was reviewed and confirmed as not applicable here under !rule.', array(
+      '@old' => $record->misspelled_word,
+      '@new' => $record->correct_word,
+      '!rule' => $rule_link,
+    )) . '</p>';
+    $account = !empty($record->rejected_uid) ? user_load((int) $record->rejected_uid) : FALSE;
+    $reviewer = $account ? $account->name : t('Unknown reviewer');
+    $date = !empty($record->rejected_at) ? format_date((int) $record->rejected_at, 'short') : t('date unavailable');
+    $review_text .= '<p class="ci-correction-rules-review-meta">' . t('Confirmed by @name on @date.', array(
+      '@name' => $reviewer,
+      '@date' => $date,
+    )) . '</p>';
+    if (!$current_definition) {
+      $review_text .= '<p class="ci-correction-rules-review-version">' . t('This decision refers to a previous definition of the rule.') . '</p>';
+    }
+    $items[] = array('data' => array('#markup' => $review_text));
+  }
+
+  if (!$items) {
+    $items[] = array('data' => t('No correction suggestion has been marked as not applicable for this chant.'));
+  }
+
+  return array(
+    'subject' => t('Spelling review'),
+    'content' => array(
+      '#theme' => 'item_list',
+      '#items' => $items,
+      '#attributes' => array('class' => array('ci-correction-rules-spelling-review')),
+    ),
+  );
+}
+
+/**
  * Implements hook_menu_alter().
  *
  * Redirect obsolete import and overview pages into the current tools and lock
