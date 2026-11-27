@@ -318,7 +318,7 @@ function ci_correction_rules_review_form($form, &$form_state, $affected, $node_w
         '#attributes' => array('class' => array('cantus-corrections-checkbox')),
         '#prefix' => $row_prefix . '<li class="cantus-corrections-chant">',
         '#suffix' => $label . ' ' . $link . ': ' . implode(' ', $words_html)
-          . '<div class="cantus-corrections-not-applicable">' . $not_applicable . '</div></li>' . $row_suffix,
+          . ' <span class="cantus-corrections-not-applicable">' . $not_applicable . '</span></li>' . $row_suffix,
       );
       $form['#selection_map'][$selection_id] = array(
         'nid' => (int) $nid,
