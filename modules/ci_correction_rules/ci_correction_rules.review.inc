@@ -19,18 +19,18 @@ function ci_correction_rules_review_page() {
     }));
   }
   else {
-    $rules = ci_correction_rules_load('spelling', TRUE);
+    $rules = ci_correction_rules_pending_review_rules(ci_correction_rules_load('spelling', TRUE));
   }
-  $page_size = 5;
   $total_rules = count($rules);
   if (!$total_rules) {
-    return array('#markup' => '<p>' . t('No published correction rules were found.') . '</p>');
+    return array('#markup' => '<p>' . t('No published correction rules with pending matches were found.') . '</p>');
   }
 
-  $total_pages = (int) ceil($total_rules / $page_size);
-  $page = isset($_GET['page']) ? max(0, (int) $_GET['page']) : 0;
-  $page = min($page, $total_pages - 1);
-  $page_rules = array_slice($rules, $page * $page_size, $page_size);
+  if (!$rule_filter) {
+    // Resolve the next pending rule to a stable, single-rule review URL.
+    backdrop_goto('correction-tools/review', array('query' => array('rule_nid' => (int) $rules[0]['nid'])));
+  }
+  $page_rules = array_slice($rules, 0, 1);
   $affected = array();
   $node_words = array();
   $rule_rows = array();
@@ -130,14 +130,10 @@ function ci_correction_rules_review_page() {
     $rule_rows[$rule_row_indexes[$rule_nid]][8] = count($chants);
   }
 
-  $navigation = array();
-  if ($page > 0) {
-    $navigation[] = l(t('Previous corrections'), 'correction-tools/review', array('query' => array('page' => $page - 1)));
-  }
-  $navigation[] = t('Page @current of @total', array('@current' => $page + 1, '@total' => $total_pages));
-  if ($page + 1 < $total_pages) {
-    $navigation[] = l(t('Next corrections'), 'correction-tools/review', array('query' => array('page' => $page + 1)));
-  }
+  $build['back'] = array(
+    '#markup' => '<p>' . l(t('← All correction rules'), 'correction-tools/rules') . '</p>',
+    '#weight' => -100,
+  );
 
   $build['intro'] = array(
     '#markup' => '<p>' . t('Select the chant corrections to apply now. Selected changes are written directly to each chant and recorded in the correction history.')
@@ -148,18 +144,112 @@ function ci_correction_rules_review_page() {
     '#header' => array(t('Correction rule'), t('Find'), t('Replace with'), t('Match type'), t('Exceptions'), t('Usage notes'), t('Review status'), t('Applied'), t('Pending')),
     '#rows' => $rule_rows,
   );
-  $build['navigation_top'] = array('#markup' => '<p>' . implode(' | ', $navigation) . '</p>');
 
   if (empty($affected)) {
     $build['empty'] = array('#markup' => '<p>' . t('No affected Cantus Index chants were found for these rules.') . '</p>');
-    $build['navigation_bottom'] = $build['navigation_top'];
     return $build;
   }
 
   $form = backdrop_get_form('ci_correction_rules_review_form', $affected, $node_words);
   $build['review_form'] = $form;
-  $build['navigation_bottom'] = $build['navigation_top'];
   return $build;
+}
+
+/**
+ * Returns rules with actual current matches, alphabetically before pagination.
+ */
+function ci_correction_rules_pending_review_rules($rules) {
+  // Match against distinct words once, rather than scan the chant table per rule.
+  $words = array();
+  $texts = db_select('field_data_field_full_text', 'f')
+    ->fields('f', array('field_full_text_value'))
+    ->condition('f.bundle', 'master_chant')
+    ->condition('f.deleted', 0)
+    ->execute();
+  foreach ($texts as $text) {
+    preg_match_all('/[\p{L}\p{M}]+/u', $text->field_full_text_value, $matches);
+    foreach ($matches[0] as $word) {
+      $words[$word] = TRUE;
+    }
+  }
+  unset($texts, $matches);
+  $words = array_keys($words);
+
+  $pending_rules = array();
+  foreach ($rules as $rule) {
+    if ($rule['old'] === '') {
+      continue;
+    }
+    // Prefilter cheaply, then apply the same match type and exceptions as review.
+    $candidates = preg_grep('/' . preg_quote($rule['old'], '/') . '/iu', $words);
+    foreach ($candidates as $word) {
+      if (ci_correction_rules_apply($word, $rule) !== $word) {
+        $pending_rules[] = $rule;
+        break;
+      }
+    }
+  }
+  usort($pending_rules, function ($a, $b) {
+    foreach (array('old', 'new', 'match_type') as $field) {
+      $order = strcmp(mb_strtolower($a[$field], 'UTF-8'), mb_strtolower($b[$field], 'UTF-8'));
+      if ($order !== 0) {
+        return $order;
+      }
+    }
+    return (int) $a['nid'] - (int) $b['nid'];
+  });
+
+  // A rule with only chant-specific rejections is no longer pending.
+  if ($pending_rules && function_exists('db_table_exists') && db_table_exists('ci_correction_rule_rejections')) {
+    $rule_nids = array_map(function ($rule) {
+      return (int) $rule['nid'];
+    }, $pending_rules);
+    $rejected_hashes = array();
+    $rejected_rule_nids = array();
+    $rejected_query = db_select('ci_correction_rule_rejections', 'r')
+      ->fields('r', array('rule_nid', 'exception_hash'))
+      ->condition('r.rule_nid', $rule_nids, 'IN');
+    foreach ($rejected_query->execute() as $rejected_row) {
+      $rejected_hashes[$rejected_row->exception_hash] = TRUE;
+      $rejected_rule_nids[(int) $rejected_row->rule_nid] = TRUE;
+    }
+
+    if ($rejected_hashes) {
+      $eligible_rules = array();
+      foreach ($pending_rules as $rule) {
+        if (!isset($rejected_rule_nids[(int) $rule['nid']])) {
+          $eligible_rules[] = $rule;
+          continue;
+        }
+
+        $candidate_query = db_select('field_data_field_full_text', 'f')
+          ->fields('f', array('entity_id', 'field_full_text_value'))
+          ->condition('f.bundle', 'master_chant')
+          ->condition('f.deleted', 0)
+          ->condition('f.field_full_text_value', '%' . db_like($rule['old']) . '%', 'LIKE');
+        $has_unrejected_match = FALSE;
+        foreach ($candidate_query->execute() as $candidate) {
+          foreach (ci_correction_rules_find_text_changes($candidate->field_full_text_value, $rule) as $change) {
+            $hash = ci_correction_rules_rejection_hash(
+              (int) $candidate->entity_id,
+              $rule,
+              $change['old'],
+              $change['new']
+            );
+            if (!isset($rejected_hashes[$hash])) {
+              $has_unrejected_match = TRUE;
+              break 2;
+            }
+          }
+        }
+        if ($has_unrejected_match) {
+          $eligible_rules[] = $rule;
+        }
+      }
+      $pending_rules = $eligible_rules;
+    }
+  }
+  return $pending_rules;
 }
 
 /**
@@ -490,6 +580,8 @@ function ci_correction_rules_review_form_submit($form, &$form_state) {
               'correct_word' => $change['correct_word'],
             ))
             ->insertFields(array(
+              'misspelled_word' => $change['misspelled_word'],
+              'correct_word' => $change['correct_word'],
               'created' => REQUEST_TIME,
               'active' => 1,
             ))
@@ -926,6 +1018,13 @@ function ci_correction_rules_node_view($node, $view_mode, $langcode) {
     }
   }
 
+  if ($view_mode === 'full') {
+    $node->content['#attached']['css'][] = backdrop_get_path('module', 'ci_correction_rules') . '/css/ci-correction-rules.css';
+    $node->content['ci_correction_rule_navigation'] = array(
+      '#markup' => '<p class="ci-correction-rule-navigation">' . l(t('← Back to Correction rules'), 'correction-tools/rules') . '</p>',
+      '#weight' => -100,
+    );
+  }
   if ($view_mode !== 'full' || !ci_correction_rules_manage_access()) {
     return;
   }
