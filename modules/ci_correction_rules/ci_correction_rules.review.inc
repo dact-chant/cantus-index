@@ -1122,6 +1122,16 @@ function ci_correction_rules_rule_changes_block($node) {
     );
   }
 
+  $rejected_hashes = array();
+  if (db_table_exists('ci_correction_rule_rejections')) {
+    $rejected_query = db_select('ci_correction_rule_rejections', 'r')
+      ->fields('r', array('exception_hash'))
+      ->condition('r.rule_nid', (int) $node->nid);
+    foreach ($rejected_query->execute() as $rejected_record) {
+      $rejected_hashes[$rejected_record->exception_hash] = TRUE;
+    }
+  }
+
   $suggestions = array();
   $pending_count = (int) db_query(
     'SELECT COUNT(*) FROM {aa_corrections} WHERE rule_nid = :rule_nid AND applied = 0',
@@ -1134,6 +1144,15 @@ function ci_correction_rules_rule_changes_block($node) {
     ->orderBy('c.id', 'DESC')
     ->range(0, 50);
   foreach ($pending_query->execute() as $record) {
+    $rejection_hash = ci_correction_rules_rejection_hash(
+      (int) $record->nid,
+      $rule,
+      $record->misspelled_word,
+      $record->correct_word
+    );
+    if (isset($rejected_hashes[$rejection_hash])) {
+      continue;
+    }
     $key = (int) $record->nid . "\0" . $record->misspelled_word . "\0" . $record->correct_word;
     $suggestions[$key] = array(
       'nid' => (int) $record->nid,
@@ -1158,6 +1177,15 @@ function ci_correction_rules_rule_changes_block($node) {
   $suggestions_truncated = count($candidate_rows) > 100 || $pending_count > 50;
   foreach (array_slice($candidate_rows, 0, 100) as $candidate) {
     foreach (ci_correction_rules_find_text_changes($candidate->field_full_text_value, $rule) as $change) {
+      $rejection_hash = ci_correction_rules_rejection_hash(
+        (int) $candidate->entity_id,
+        $rule,
+        $change['old'],
+        $change['new']
+      );
+      if (isset($rejected_hashes[$rejection_hash])) {
+        continue;
+      }
       $key = (int) $candidate->entity_id . "\0" . $change['old'] . "\0" . $change['new'];
       if (!isset($suggestions[$key])) {
         $suggestions[$key] = array(
