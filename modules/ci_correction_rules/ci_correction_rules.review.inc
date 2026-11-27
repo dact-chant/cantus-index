@@ -39,6 +39,15 @@ function ci_correction_rules_review_page() {
   $page_rule_nids = array_map(function ($rule) {
     return (int) $rule['nid'];
   }, $page_rules);
+  $rejected_hashes = array();
+  if ($page_rule_nids && db_table_exists('ci_correction_rule_rejections')) {
+    $rejected_query = db_select('ci_correction_rule_rejections', 'r')
+      ->fields('r', array('exception_hash'))
+      ->condition('r.rule_nid', $page_rule_nids, 'IN');
+    foreach ($rejected_query->execute() as $rejected_row) {
+      $rejected_hashes[$rejected_row->exception_hash] = TRUE;
+    }
+  }
   $applied_counts = array();
   $applied_query = db_select('aa_corrections', 'c');
   $applied_query->innerJoin('node', 'n', 'n.nid = c.nid');
@@ -101,6 +110,11 @@ function ci_correction_rules_review_page() {
             continue;
           }
 
+          $rejection_hash = ci_correction_rules_rejection_hash($nid, $rule, $old_word, $new_word);
+          if (isset($rejected_hashes[$rejection_hash])) {
+            continue;
+          }
+
           $key = (int) $rule['nid'] . "\0" . $old_word . "\0" . $new_word;
           $affected[$key]['rule_nid'] = (int) $rule['nid'];
           $affected[$key]['old'] = $old_word;
@@ -154,6 +168,7 @@ function ci_correction_rules_review_page() {
 function ci_correction_rules_review_form($form, &$form_state, $affected, $node_words) {
   $form['#attributes']['class'][] = 'cantus-corrections-form';
   $form['#attached']['js'][] = backdrop_get_path('module', 'ci_correction_rules') . '/js/cantus-corrections.js';
+  $form['#attached']['css'][] = backdrop_get_path('module', 'ci_correction_rules') . '/css/ci-correction-rules.css';
   $form['#selection_map'] = array();
   $form['select_all'] = array(
     '#markup' => '<p><a href="#" class="cantus-corrections-select-all">' . t('Select all') . '</a></p>',
@@ -190,6 +205,15 @@ function ci_correction_rules_review_form($form, &$form_state, $affected, $node_w
         '@new' => $item['new'],
       ));
       $label = '<label class="element-invisible" for="' . check_plain($checkbox_id) . '">' . $title . '</label>';
+      $not_applicable = l(t('Not applicable here'), 'correction-tools/review/not-applicable', array(
+        'query' => array(
+          'nid' => (int) $nid,
+          'rule_nid' => (int) $item['rule_nid'],
+          'old_word' => $item['old'],
+          'new_word' => $item['new'],
+        ),
+        'attributes' => array('class' => array('cantus-corrections-not-applicable-link')),
+      ));
       $row_prefix = $chant_index === 0
         ? '<tr><td>' . check_plain($item['old']) . ' &rarr; ' . check_plain($item['new']) . '</td><td><ul>'
         : '';
@@ -203,7 +227,8 @@ function ci_correction_rules_review_form($form, &$form_state, $affected, $node_w
         '#theme_wrappers' => array(),
         '#attributes' => array('class' => array('cantus-corrections-checkbox')),
         '#prefix' => $row_prefix . '<li class="cantus-corrections-chant">',
-        '#suffix' => $label . ' ' . $link . ': ' . implode(' ', $words_html) . '</li>' . $row_suffix,
+        '#suffix' => $label . ' ' . $link . ': ' . implode(' ', $words_html)
+          . '<div class="cantus-corrections-not-applicable">' . $not_applicable . '</div></li>' . $row_suffix,
       );
       $form['#selection_map'][$selection_id] = array(
         'nid' => (int) $nid,
@@ -224,6 +249,130 @@ function ci_correction_rules_review_form($form, &$form_state, $affected, $node_w
     '#attributes' => array('class' => array('cantus-corrections-submit')),
   );
   return $form;
+}
+
+/**
+ * Displays a confirmation form for rejecting one rule match in one chant.
+ */
+function ci_correction_rules_rejection_page() {
+  $nid = isset($_GET['nid']) ? (int) $_GET['nid'] : 0;
+  $rule_nid = isset($_GET['rule_nid']) ? (int) $_GET['rule_nid'] : 0;
+  $old_word = isset($_GET['old_word']) ? trim((string) $_GET['old_word']) : '';
+  $new_word = isset($_GET['new_word']) ? trim((string) $_GET['new_word']) : '';
+  $candidate = ci_correction_rules_load_rejection_candidate($nid, $rule_nid, $old_word, $new_word);
+  if (!$candidate) {
+    return array('#markup' => '<p>' . t('This correction suggestion is no longer available.') . ' '
+      . l(t('Return to correction review'), 'correction-tools/review') . '</p>');
+  }
+  if (ci_correction_rules_rejection_exists($nid, $candidate['rule'], $old_word, $new_word)) {
+    return array('#markup' => '<p>' . t('This suggestion is already marked as not applicable here.') . ' '
+      . l(t('Return to correction review'), 'correction-tools/review') . '</p>');
+  }
+  return backdrop_get_form('ci_correction_rules_rejection_form', $nid, $rule_nid, $old_word, $new_word);
+}
+
+/**
+ * Confirms and records that a specific correction does not apply to a chant.
+ */
+function ci_correction_rules_rejection_form($form, &$form_state, $nid, $rule_nid, $old_word, $new_word) {
+  $form['nid'] = array('#type' => 'value', '#value' => (int) $nid);
+  $form['rule_nid'] = array('#type' => 'value', '#value' => (int) $rule_nid);
+  $form['old_word'] = array('#type' => 'value', '#value' => $old_word);
+  $form['new_word'] = array('#type' => 'value', '#value' => $new_word);
+  $chant = node_load((int) $nid);
+  $chant_link = $chant ? l($chant->title, 'node/' . (int) $nid) : check_plain($nid);
+  $form['prompt'] = array(
+    '#markup' => '<p>' . t('Mark the suggestion @old → @new as not applicable here for:', array(
+      '@old' => $old_word,
+      '@new' => $new_word,
+    )) . '</p><p>' . $chant_link . '</p>',
+  );
+  $form['actions'] = array('#type' => 'actions');
+  $form['actions']['confirm'] = array(
+    '#type' => 'submit',
+    '#value' => t('Confirm'),
+  );
+  $form['actions']['cancel'] = array(
+    '#type' => 'markup',
+    '#markup' => l(t('Cancel'), 'correction-tools/review'),
+  );
+  return $form;
+}
+
+/**
+ * Confirms that the proposed change still exists before saving a rejection.
+ */
+function ci_correction_rules_rejection_form_validate($form, &$form_state) {
+  $values = $form_state['values'];
+  if (!ci_correction_rules_load_rejection_candidate(
+    $values['nid'],
+    $values['rule_nid'],
+    $values['old_word'],
+    $values['new_word']
+  )) {
+    form_set_error('nid', t('This correction suggestion is no longer available. Reload the review page.'));
+  }
+}
+
+/**
+ * Saves a chant-specific rejection and returns to correction review.
+ */
+function ci_correction_rules_rejection_form_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $candidate = ci_correction_rules_load_rejection_candidate(
+    $values['nid'],
+    $values['rule_nid'],
+    $values['old_word'],
+    $values['new_word']
+  );
+  if ($candidate && ci_correction_rules_record_rejection(
+    $values['nid'],
+    $candidate['rule'],
+    $values['old_word'],
+    $values['new_word']
+  )) {
+    backdrop_set_message(t('The suggestion was marked as not applicable for this chant.'));
+  }
+  else {
+    backdrop_set_message(t('The suggestion could not be marked. It may have changed since you opened it.'), 'warning');
+  }
+  $form_state['redirect'] = 'correction-tools/review';
+}
+
+/**
+ * Loads a chant and rule only when their current text still has this match.
+ */
+function ci_correction_rules_load_rejection_candidate($nid, $rule_nid, $old_word, $new_word) {
+  $nid = (int) $nid;
+  $rule_nid = (int) $rule_nid;
+  if (!$nid || !$rule_nid || $old_word === '' || $new_word === ''
+    || !db_table_exists('ci_correction_rule_rejections')) {
+    return FALSE;
+  }
+
+  $chant = node_load($nid);
+  $rule_node = node_load($rule_nid);
+  if (!$chant || $chant->type !== 'master_chant' || !$rule_node
+    || $rule_node->type !== 'ci_correction_rule' || empty($rule_node->status)) {
+    return FALSE;
+  }
+  $rule = ci_correction_rules_get_rule($rule_node);
+  if ($rule['category'] !== 'spelling') {
+    return FALSE;
+  }
+
+  $langcode = NULL;
+  $delta = NULL;
+  $full_text = ci_correction_rules_get_full_text($chant, $langcode, $delta);
+  if ($full_text === FALSE) {
+    return FALSE;
+  }
+  foreach (ci_correction_rules_find_text_changes($full_text, $rule) as $change) {
+    if ($change['old'] === $old_word && $change['new'] === $new_word) {
+      return array('chant' => $chant, 'rule' => $rule);
+    }
+  }
+  return FALSE;
 }
 
 /**

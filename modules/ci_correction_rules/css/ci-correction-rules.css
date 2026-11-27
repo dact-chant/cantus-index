@@ -23,3 +23,8 @@
   gap: 0.5em;
   min-height: 2.5em;
 }
+
+.cantus-corrections-not-applicable {
+  margin-top: 0.35em;
+  text-align: right;
+}
